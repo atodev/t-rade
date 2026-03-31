@@ -271,14 +271,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     current_ma_fast = 9
     current_ma_slow = 21
 
-    # 2. UTC trading window: 18:00–20:00 only.
-    #    19:00 UTC = 67% WR / +$0.14 avg; 18:00 UTC = 50% WR / +$0.08 avg.
-    #    All other hours average negative P&L.
-    utc_hour = time.gmtime().tm_hour
-    if not (18 <= utc_hour < 20):
-        status_queue.put(f"Outside trading window (UTC {utc_hour:02d}:xx) — waiting 10m.")
-        time.sleep(600)
-        return
+    # Trading window: unrestricted — need 200+ trades per hour before locking a window.
     # ─────────────────────────────────────────────────────────────────────────
 
     analysis_count += 1
