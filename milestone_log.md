@@ -127,3 +127,89 @@
 [2026-03-31 17:57:34] Gathering sim data… 4/15 completed trades.
 [2026-03-31 17:58:34] Gathering sim data… 4/15 completed trades.
 [2026-03-31 17:59:34] Gathering sim data… 4/15 completed trades.
+[2026-03-31 18:00:34] Gathering sim data… 4/15 completed trades.
+[2026-03-31 18:01:34] Gathering sim data… 4/15 completed trades.
+[2026-03-31 18:02:35] Gathering sim data… 4/15 completed trades.
+[2026-03-31 18:03:35] Gathering sim data… 7/15 completed trades.
+[2026-03-31 18:04:35] Gathering sim data… 7/15 completed trades.
+[2026-03-31 18:05:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:06:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:07:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:08:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:09:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:10:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:11:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:12:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:13:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:14:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:15:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:16:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:17:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:18:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:19:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:20:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:21:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:22:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:23:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:24:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:25:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:26:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:27:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:28:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:29:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:30:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:31:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:32:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:33:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:34:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:35:35] Gathering sim data… 11/15 completed trades.
+[2026-03-31 18:36:35] Eval #128 | SL=0.99 TP=1.01 MA(9/21) | WR=18.8% AvgPnL=$-0.0069 | Proj7d=$13.42 (need $180.76)
+[2026-03-31 18:36:35] New best params: SL=0.99, Target=1.01, MA(9/21) (score=-0.8125)
+[2026-03-31 18:36:35] Switching to param set 2/10: SL=0.988, Target=1.012, MA(9/21)
+[2026-03-31 18:37:35] Eval #129 | SL=0.988 TP=1.012 MA(9/21) | WR=18.8% AvgPnL=$-0.0069 | Proj7d=$13.42 (need $180.76)
+[2026-03-31 18:37:35] Switching to param set 3/10: SL=0.992, Target=1.008, MA(9/21)
+[2026-03-31 18:38:35] Eval #130 | SL=0.992 TP=1.008 MA(9/21) | WR=18.8% AvgPnL=$-0.0069 | Proj7d=$13.42 (need $180.76)
+[2026-03-31 18:38:35] Switching to param set 4/10: SL=0.99, Target=1.01, MA(5/13)
+[2026-03-31 18:39:36] Eval #131 | SL=0.99 TP=1.01 MA(5/13) | WR=18.8% AvgPnL=$-0.0069 | Proj7d=$13.42 (need $180.76)
+[2026-03-31 18:39:36] Switching to param set 5/10: SL=0.988, Target=1.012, MA(5/13)
+[2026-03-31 18:40:36] Eval #132 | SL=0.988 TP=1.012 MA(5/13) | WR=18.8% AvgPnL=$-0.0069 | Proj7d=$13.42 (need $180.76)
+[2026-03-31 18:40:36] Switching to param set 6/10: SL=0.99, Target=1.01, MA(7/21)
+[2026-03-31 18:41:36] Eval #133 | SL=0.99 TP=1.01 MA(7/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:41:36] New best params: SL=0.99, Target=1.01, MA(7/21) (score=0.0038)
+[2026-03-31 18:41:36] Switching to param set 7/10: SL=0.988, Target=1.015, MA(7/21)
+[2026-03-31 18:42:36] Eval #134 | SL=0.988 TP=1.015 MA(7/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:42:36] Switching to param set 8/10: SL=0.99, Target=1.01, MA(12/26)
+[2026-03-31 18:43:36] Eval #135 | SL=0.99 TP=1.01 MA(12/26) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:43:36] Switching to param set 9/10: SL=0.985, Target=1.015, MA(12/26)
+[2026-03-31 18:44:36] Eval #136 | SL=0.985 TP=1.015 MA(12/26) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:44:36] Switching to param set 10/10: SL=0.99, Target=1.012, MA(9/21)
+[2026-03-31 18:45:36] Eval #137 | SL=0.99 TP=1.012 MA(9/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:45:36] Switching to param set 1/10: SL=0.99, Target=1.01, MA(9/21)
+[2026-03-31 18:46:36] Eval #138 | SL=0.99 TP=1.01 MA(9/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:46:36] Switching to param set 2/10: SL=0.988, Target=1.012, MA(9/21)
+[2026-03-31 18:47:36] Eval #139 | SL=0.988 TP=1.012 MA(9/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:47:36] Switching to param set 3/10: SL=0.992, Target=1.008, MA(9/21)
+[2026-03-31 18:48:36] Eval #140 | SL=0.992 TP=1.008 MA(9/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:48:36] Switching to param set 4/10: SL=0.99, Target=1.01, MA(5/13)
+[2026-03-31 18:49:36] Eval #141 | SL=0.99 TP=1.01 MA(5/13) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:49:36] Switching to param set 5/10: SL=0.988, Target=1.012, MA(5/13)
+[2026-03-31 18:50:36] Eval #142 | SL=0.988 TP=1.012 MA(5/13) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:50:36] Switching to param set 6/10: SL=0.99, Target=1.01, MA(7/21)
+[2026-03-31 18:51:36] Eval #143 | SL=0.99 TP=1.01 MA(7/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:51:36] Switching to param set 7/10: SL=0.988, Target=1.015, MA(7/21)
+[2026-03-31 18:52:36] Eval #144 | SL=0.988 TP=1.015 MA(7/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:52:36] Switching to param set 8/10: SL=0.99, Target=1.01, MA(12/26)
+[2026-03-31 18:53:36] Eval #145 | SL=0.99 TP=1.01 MA(12/26) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:53:37] Switching to param set 9/10: SL=0.985, Target=1.015, MA(12/26)
+[2026-03-31 18:54:37] Eval #146 | SL=0.985 TP=1.015 MA(12/26) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:54:37] Switching to param set 10/10: SL=0.99, Target=1.012, MA(9/21)
+[2026-03-31 18:55:37] Eval #147 | SL=0.99 TP=1.012 MA(9/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:55:37] Switching to param set 1/10: SL=0.99, Target=1.01, MA(9/21)
+[2026-03-31 18:56:37] Eval #148 | SL=0.99 TP=1.01 MA(9/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:56:37] Switching to param set 2/10: SL=0.988, Target=1.012, MA(9/21)
+[2026-03-31 18:57:37] Eval #149 | SL=0.988 TP=1.012 MA(9/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:57:37] Switching to param set 3/10: SL=0.992, Target=1.008, MA(9/21)
+[2026-03-31 18:58:37] Eval #150 | SL=0.992 TP=1.008 MA(9/21) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:58:37] Switching to param set 4/10: SL=0.99, Target=1.01, MA(5/13)
+[2026-03-31 18:59:37] Eval #151 | SL=0.99 TP=1.01 MA(5/13) | WR=22.7% AvgPnL=$0.0002 | Proj7d=$18.19 (need $180.76)
+[2026-03-31 18:59:37] Switching to param set 5/10: SL=0.988, Target=1.012, MA(5/13)
