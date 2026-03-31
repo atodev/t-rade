@@ -1,0 +1,7 @@
+pandas
+matplotlib
+sqlalchemy  
+python-dotenv
+python-binance
+pandas 
+termcolor

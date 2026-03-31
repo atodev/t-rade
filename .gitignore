@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Databases (live trading state — not version controlled)
+*.db
+
+# Virtual env
+venv/
+env/
