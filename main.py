@@ -268,9 +268,12 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         try:
             df_c = getminutedata(candidate, "1m", "30", current_ma_fast, current_ma_slow)
             if df_c.empty:
+                time.sleep(2)
                 continue
         except Exception:
+            time.sleep(2)
             continue
+        time.sleep(2)
 
         momentum_condition = ((df_c.Close.pct_change() + 1).cumprod()).iloc[-1] > 1
         ma_condition = df_c['SMA_fast'].iloc[-1] > df_c['SMA_slow'].iloc[-1]
@@ -322,7 +325,8 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         break
 
     if asset is None:
-        status_queue.put("No valid candidate found in top list.")
+        status_queue.put("No valid candidate found — waiting 60s before next scan.")
+        time.sleep(60)
         return
 
     currently_analyzing_asset = asset
@@ -605,7 +609,7 @@ def trading_loop(args):
             status_queue.put("AI override — simulation mode active.")
 
         strategy(percent_var=percent_var, risk_var=risk_var, in_trade_var=in_trade_var, force_sim=force_sim)
-        time.sleep(10)
+        time.sleep(5)
 
 def apply_theme(root, style, dark_mode):
     global lighter_bg_color
