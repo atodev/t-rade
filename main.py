@@ -249,6 +249,22 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     # momentum headroom to reach TP before the trend fades.
     MIN_SPLIT_PCT = (Target - 1) * 100 * 0.20
 
+    # ── Evidence-based filters (from analytics report) ────────────────────────
+    # 1. Lock MA to 9/21 — the only profitable config (avg +$0.0176, 44% WR).
+    #    5/13 showed -$0.0766 avg P&L across 200+ trades.
+    current_ma_fast = 9
+    current_ma_slow = 21
+
+    # 2. UTC trading window: 18:00–20:00 only.
+    #    19:00 UTC = 67% WR / +$0.14 avg; 18:00 UTC = 50% WR / +$0.08 avg.
+    #    All other hours average negative P&L.
+    utc_hour = time.gmtime().tm_hour
+    if not (18 <= utc_hour < 20):
+        status_queue.put(f"Outside trading window (UTC {utc_hour:02d}:xx) — waiting 10m.")
+        time.sleep(600)
+        return
+    # ─────────────────────────────────────────────────────────────────────────
+
     analysis_count += 1
 
     try:
@@ -296,30 +312,40 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             continue
 
         # 2. Trend acceleration: compare current split to 5 candles ago.
-        #    Widening → full size; narrowing → reduce position by 30%.
-        split_prev       = df_c['SMA_fast'].iloc[-6] - df_c['SMA_slow'].iloc[-6] if len(df_c) >= 6 else split_now
-        trend_widening   = split_now > split_prev
-        size_multiplier  = 1.0 if trend_widening else 0.70
-        trend_label      = "widening" if trend_widening else "narrowing"
+        split_prev     = df_c['SMA_fast'].iloc[-6] - df_c['SMA_slow'].iloc[-6] if len(df_c) >= 6 else split_now
+        trend_widening = split_now > split_prev
+        trend_label    = "widening" if trend_widening else "narrowing"
+
+        # HARD FILTER: block narrowing-trend entries — 0% WR across 82 trades.
+        if not trend_widening:
+            status_queue.put(f"{candidate} skipped — trend narrowing (0% WR filter).")
+            continue
+
+        # Compute risk score before the risk-band filter
+        ma_diff_risk = abs(norm_diff) * 10
+        vol_mean = df_c['Volume'].mean()
+        vol_std  = df_c['Volume'].std()
+        volume_risk = 0
+        if vol_std > 0:
+            volume_z_score = (df_c['Volume'].iloc[-1] - vol_mean) / vol_std
+            volume_risk = max(0, volume_z_score) * 2
+        total_risk = min(10, (ma_diff_risk + volume_risk) / 2)
+
+        # HARD FILTER: block risk bands 0–2 (11% WR, -$17 total) and 6–8 (0% WR).
+        if total_risk < 2 or (6 <= total_risk < 8):
+            status_queue.put(f"{candidate} skipped — risk {total_risk:.1f} in dead zone (0–2 or 6–8).")
+            continue
+
         status_queue.put(
             f"{candidate} MA({current_ma_fast}/{current_ma_slow}) "
-            f"split={norm_diff:.3f}% trend={trend_label}"
+            f"split={norm_diff:.3f}% trend={trend_label} risk={total_risk:.1f}"
         )
         # ─────────────────────────────────────────────────────────────────────
 
         # Passed all checks — use this candidate
         asset, percentage, df = candidate, float(pct), df_c
 
-        ma_diff_risk = abs(norm_diff) * 10
-        vol_mean = df['Volume'].mean()
-        vol_std = df['Volume'].std()
-        volume_risk = 0
-        if vol_std > 0:
-            volume_z_score = (df['Volume'].iloc[-1] - vol_mean) / vol_std
-            volume_risk = max(0, volume_z_score) * 2
-        total_risk = min(10, (ma_diff_risk + volume_risk) / 2)
-
-        buy_proportion = (0.5 - total_risk * 0.045) * size_multiplier
+        buy_proportion = 0.5 - total_risk * 0.045
         buy_amt = max(MIN_NOTIONAL, int(buy_proportion * usdt_bal))
         qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
         break
