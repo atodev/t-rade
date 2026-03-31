@@ -16,6 +16,8 @@ from termcolor import colored
 from queue import Queue
 from ai_engine import AIStrategyEngine
 import analytics
+import urllib.request
+import json as _json
 
 # --- Global Variables and Initializations ---
 
@@ -74,8 +76,22 @@ lighter_bg_color = None
 
 # Binance Client
 load_dotenv()
-API_KEY = os.getenv("API_KEY")
-SECRET_KEY = os.getenv("SECRET_KEY")
+API_KEY        = os.getenv("API_KEY")
+SECRET_KEY     = os.getenv("SECRET_KEY")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT  = os.getenv("TELEGRAM_CHAT_ID")
+
+def telegram_notify(message: str):
+    """Send a message to Telegram. Silently fails if token not configured."""
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
+        return
+    try:
+        url  = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+        data = _json.dumps({"chat_id": TELEGRAM_CHAT, "text": message, "parse_mode": "HTML"}).encode()
+        req  = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        urllib.request.urlopen(req, timeout=5)
+    except Exception:
+        pass
 
 # --- Functions ---
 
@@ -402,6 +418,13 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
                   ma_fast=current_ma_fast, ma_slow=current_ma_slow, hold_seconds=0,
                   fee=buy_fee, fee_asset=buy_fee_asset)
     df_log = pd.concat([df_log, new_row])
+    telegram_notify(
+        f"🔵 <b>BUY [{'LIVE' if trade else 'SIM'}]</b> {asset}\n"
+        f"Price: <code>${buyprice:.6f}</code>  Qty: {qty}\n"
+        f"Cost: ${cost:.4f}  Fee: {buy_fee:.6f} {buy_fee_asset}\n"
+        f"Split: {norm_diff:.3f}%  Risk: {total_risk:.1f}/10\n"
+        f"W/L: {pc}/{lc}  Bal: ${usdt_bal:.4f}"
+    )
 
     open_position = True
     call_count = 0
@@ -470,18 +493,32 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
 
             total_pnl += pnl
             if sellprice < benchmark:
-                status_queue.put(
+                msg = (
                     f"✘ LOSS {asset} | sell ${sellprice:.6f} vs buy ${benchmark:.6f} | "
                     f"PnL ${pnl:.4f} | fees {total_fees:.6f} {sell_fee_asset or buy_fee_asset}"
+                )
+                status_queue.put(msg)
+                telegram_notify(
+                    f"🔴 <b>LOSS [{'LIVE' if trade else 'SIM'}]</b> {asset}\n"
+                    f"Sell: <code>${sellprice:.6f}</code>  Buy: <code>${benchmark:.6f}</code>\n"
+                    f"PnL: ${pnl:.4f}  Fees: {total_fees:.6f} {sell_fee_asset or buy_fee_asset}\n"
+                    f"Hold: {hold_secs//60}m {hold_secs%60}s  W/L: {pc}/{lc+1}  Bal: ${usdt_bal:.4f}"
                 )
                 lc += 1
                 consec_lc += 1
                 consec_pc = 0
                 ind = "l"
             else:
-                status_queue.put(
+                msg = (
                     f"✔ PROFIT {asset} | sell ${sellprice:.6f} vs buy ${benchmark:.6f} | "
                     f"PnL ${pnl:.4f} | fees {total_fees:.6f} {sell_fee_asset or buy_fee_asset}"
+                )
+                status_queue.put(msg)
+                telegram_notify(
+                    f"🟢 <b>PROFIT [{'LIVE' if trade else 'SIM'}]</b> {asset}\n"
+                    f"Sell: <code>${sellprice:.6f}</code>  Buy: <code>${benchmark:.6f}</code>\n"
+                    f"PnL: +${pnl:.4f}  Fees: {total_fees:.6f} {sell_fee_asset or buy_fee_asset}\n"
+                    f"Hold: {hold_secs//60}m {hold_secs%60}s  W/L: {pc+1}/{lc}  Bal: ${usdt_bal:.4f}"
                 )
                 pc += 1
                 consec_pc += 1
