@@ -489,3 +489,22 @@
 [2026-04-01 09:57:01] Gathering sim data… 1/15 completed trades.
 [2026-04-01 09:58:01] Gathering sim data… 1/15 completed trades.
 [2026-04-01 09:59:01] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:41:57] Engine online. Starting equity: $50.00. Target: $500.00 in 7 days. Simulation mode active.
+[2026-04-01 10:42:57] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:43:57] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:44:57] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:45:57] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:46:57] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:47:57] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:48:57] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:49:57] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:50:57] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:51:58] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:52:58] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:53:58] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:54:58] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:55:58] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:56:58] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:57:58] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:58:58] Gathering sim data… 1/15 completed trades.
+[2026-04-01 10:59:58] Gathering sim data… 1/15 completed trades.
