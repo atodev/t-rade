@@ -1,6 +1,6 @@
 # Strategy Log
 
-_Updated: 2026-04-01 03:59:52_
+_Updated: 2026-04-01 04:05:53_
 
 ## ✗ Cycle-128 — 2026-03-31 18:36
 - **Params**: SL=0.99, Target=1.01, MA(9/21)
@@ -4500,6 +4500,54 @@ _Updated: 2026-04-01 03:59:52_
 
 ## ✗ Cycle-690 — 2026-04-01 03:59
 - **Params**: SL=0.992, Target=1.008, MA(9/21)
+- **Win Rate**: 37.0% (37W / 63L)
+- **Avg PnL/trade**: $-0.0200
+- **Current Equity**: $18.08
+- **Projected 7d Equity**: $4.67
+- **Status**: below target — continuing sim
+
+## ✗ Cycle-691 — 2026-04-01 04:00
+- **Params**: SL=0.99, Target=1.01, MA(5/13)
+- **Win Rate**: 37.0% (37W / 63L)
+- **Avg PnL/trade**: $-0.0200
+- **Current Equity**: $18.08
+- **Projected 7d Equity**: $4.67
+- **Status**: below target — continuing sim
+
+## ✗ Cycle-692 — 2026-04-01 04:01
+- **Params**: SL=0.988, Target=1.012, MA(5/13)
+- **Win Rate**: 37.0% (37W / 63L)
+- **Avg PnL/trade**: $-0.0200
+- **Current Equity**: $18.08
+- **Projected 7d Equity**: $4.67
+- **Status**: below target — continuing sim
+
+## ✗ Cycle-693 — 2026-04-01 04:02
+- **Params**: SL=0.99, Target=1.01, MA(7/21)
+- **Win Rate**: 37.0% (37W / 63L)
+- **Avg PnL/trade**: $-0.0200
+- **Current Equity**: $18.08
+- **Projected 7d Equity**: $4.67
+- **Status**: below target — continuing sim
+
+## ✗ Cycle-694 — 2026-04-01 04:03
+- **Params**: SL=0.988, Target=1.015, MA(7/21)
+- **Win Rate**: 37.0% (37W / 63L)
+- **Avg PnL/trade**: $-0.0200
+- **Current Equity**: $18.08
+- **Projected 7d Equity**: $4.67
+- **Status**: below target — continuing sim
+
+## ✗ Cycle-695 — 2026-04-01 04:04
+- **Params**: SL=0.99, Target=1.01, MA(12/26)
+- **Win Rate**: 37.0% (37W / 63L)
+- **Avg PnL/trade**: $-0.0200
+- **Current Equity**: $18.08
+- **Projected 7d Equity**: $4.67
+- **Status**: below target — continuing sim
+
+## ✗ Cycle-696 — 2026-04-01 04:05
+- **Params**: SL=0.985, Target=1.015, MA(12/26)
 - **Win Rate**: 37.0% (37W / 63L)
 - **Avg PnL/trade**: $-0.0200
 - **Current Equity**: $18.08
