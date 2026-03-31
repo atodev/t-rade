@@ -9,6 +9,9 @@ cd "$(dirname "$0")"
 # Ensure log files exist (create empty if not)
 touch milestone_log.md strategy_log.md analytics_report.md trades.csv
 
+# Send Telegram check-in from the Pi (remote agent sandbox blocks outbound HTTPS)
+python3 checkin.py >> /tmp/push_logs.out 2>&1 && echo "[$(date)] Telegram sent." || echo "[$(date)] Telegram send failed."
+
 # Stage only the log/data files — never commit .env or *.db
 git add milestone_log.md strategy_log.md analytics_report.md trades.csv
 

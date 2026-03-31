@@ -31,24 +31,28 @@ def send(msg):
 
 def parse_strategy_log():
     lines = read("strategy_log.md")
-    result = {"sl": "?", "target": "?", "ma": "?", "wr": "?", "avg_pnl": "?",
+    result = {"sl": "?", "target": "?", "ma": "9/21", "wr": "?", "avg_pnl": "?",
               "proj": "?", "trades": "?", "status": "?", "cycle": "?"}
+    # Walk all lines; last match wins (most recent cycle at end of file)
     for line in lines:
-        m = re.search(r"Params.*SL=([\d.]+).*Target=([\d.]+).*MA\((\d+)/(\d+)\)", line)
+        # Params line: SL=0.99, Target=1.01 or SL=0.99, Target=1.01, MA(9/21)
+        m = re.search(r"SL=([\d.]+).*?Target=([\d.]+)", line)
         if m:
             result["sl"]     = m.group(1)
             result["target"] = m.group(2)
-            result["ma"]     = f"{m.group(3)}/{m.group(4)}"
+        m = re.search(r"MA\((\d+)/(\d+)\)", line)
+        if m:
+            result["ma"] = f"{m.group(1)}/{m.group(2)}"
         m = re.search(r"Win Rate.*?([\d.]+)%.*?\((\d+)W / (\d+)L\)", line)
         if m:
-            result["wr"]     = f"{m.group(1)}% ({m.group(2)}W/{m.group(3)}L)"
+            result["wr"] = f"{m.group(1)}% ({m.group(2)}W/{m.group(3)}L)"
         m = re.search(r"Avg PnL.*?\$([-\d.]+)", line)
         if m:
             result["avg_pnl"] = f"${m.group(1)}"
         m = re.search(r"Projected 7d Equity.*?\$([-\d.]+)", line)
         if m:
             result["proj"] = f"${m.group(1)}"
-        m = re.search(r"Status.*?(on_track|below target)", line)
+        m = re.search(r"Status.*?(on.track|below target)", line)
         if m:
             result["status"] = m.group(1)
         m = re.search(r"Cycle-(\d+)", line)
