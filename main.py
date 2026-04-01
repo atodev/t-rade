@@ -294,10 +294,8 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     MIN_SPLIT_PCT = (Target - 1) * 100 * 0.20
 
     # ── Evidence-based filters (from analytics report) ────────────────────────
-    # 1. Lock MA to 9/21 — the only profitable config (avg +$0.0176, 44% WR).
-    #    5/13 showed -$0.0766 avg P&L across 200+ trades.
-    current_ma_fast = 9
-    current_ma_slow = 21
+    # MA is controlled by the AI engine (default 9/21, best performer historically).
+    # Do not override here — let the AI cycle through PARAM_GRID entries.
 
     # 2. BTC macro filter: only enter when BTC 30-min trend is bullish.
     #    Altcoins follow BTC — entering longs during a BTC downtrend is the

@@ -186,89 +186,93 @@ class AIStrategyEngine:
             if not self.running:
                 break
 
-            self.eval_cycle       += 1
-            self.initial_balance   = get_initial_bal()
-            trades_df              = self._load_recent_trades(100)
-            result                 = self._evaluate(trades_df)
+            try:
+                self.eval_cycle       += 1
+                self.initial_balance   = get_initial_bal()
+                trades_df              = self._load_recent_trades(100)
+                result                 = self._evaluate(trades_df)
 
-            if result is None:
-                seen = (
-                    len(trades_df[trades_df["action"] == "sell"])
-                    if not trades_df.empty else 0
-                )
-                self._post(
-                    f"Gathering sim data… {seen}/{MIN_TRADES_FOR_EVAL} completed trades."
-                )
-                continue
-
-            target_equity = self.initial_balance * TARGET_MULTIPLIER
-            on_track      = result["projected_equity"] >= target_equity and result["avg_pnl"] > 0
-            score         = self._score(result)
-            params        = get_strategy_params()
-
-            self._post(
-                f"Eval #{self.eval_cycle} | "
-                f"SL={params['SL']} TP={params['Target']} "
-                f"MA({params['ma_fast']}/{params['ma_slow']}) | "
-                f"WR={result['win_rate']:.1%} AvgPnL=${result['avg_pnl']:.4f} | "
-                f"Proj7d=${result['projected_equity']:.2f} (need ${target_equity:.2f})"
-            )
-
-            # Record this cycle
-            entry = {
-                "name":             f"Cycle-{self.eval_cycle}",
-                "timestamp":        datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "sl":               params["SL"],
-                "target":           params["Target"],
-                "ma_fast":          params["ma_fast"],
-                "ma_slow":          params["ma_slow"],
-                "win_rate":         result["win_rate"],
-                "avg_pnl":          result["avg_pnl"],
-                "current_equity":   result["current_equity"],
-                "projected_equity": result["projected_equity"],
-                "wins":             result["wins"],
-                "losses":           result["losses"],
-                "success":          on_track,
-                "status":           (
-                    "on_track — live enabled"
-                    if on_track
-                    else "below target — continuing sim"
-                ),
-            }
-            self.strategy_log.append(entry)
-            self._save_strategy_log()
-
-            if score > self.best_score:
-                self.best_score  = score
-                self.best_params = dict(params)
-                self._post(
-                    f"New best params: SL={params['SL']}, Target={params['Target']}, "
-                    f"MA({params['ma_fast']}/{params['ma_slow']}) (score={score:.4f})"
-                )
-
-            if on_track and not self.live_enabled:
-                self.live_enabled = True
-                set_force_sim(False)
-                self._post(
-                    f"MILESTONE: Simulation meets 10× target! "
-                    f"WR={result['win_rate']:.1%}, Proj7d=${result['projected_equity']:.2f}. "
-                    f"Live trading enabled."
-                )
-            elif not on_track:
-                if self.live_enabled:
-                    self.live_enabled = False
-                    set_force_sim(True)
-                    self._post(
-                        "Performance fell below target. Reverting to simulation."
+                if result is None:
+                    seen = (
+                        len(trades_df[trades_df["action"] == "sell"])
+                        if not trades_df.empty else 0
                     )
-                # Advance to next parameter combination
-                self.param_index = (self.param_index + 1) % len(PARAM_GRID)
-                new_sl, new_tp, new_fast, new_slow = PARAM_GRID[self.param_index]
-                set_strategy_params({"SL": new_sl, "Target": new_tp, "ma_fast": new_fast, "ma_slow": new_slow})
+                    self._post(
+                        f"Gathering sim data… {seen}/{MIN_TRADES_FOR_EVAL} completed trades."
+                    )
+                    continue
+
+                target_equity = self.initial_balance * TARGET_MULTIPLIER
+                on_track      = result["projected_equity"] >= target_equity and result["avg_pnl"] > 0
+                score         = self._score(result)
+                params        = get_strategy_params()
+
                 self._post(
-                    f"Switching to param set {self.param_index + 1}/{len(PARAM_GRID)}: "
-                    f"SL={new_sl}, Target={new_tp}, MA({new_fast}/{new_slow})"
+                    f"Eval #{self.eval_cycle} | "
+                    f"SL={params['SL']} TP={params['Target']} "
+                    f"MA({params['ma_fast']}/{params['ma_slow']}) | "
+                    f"WR={result['win_rate']:.1%} AvgPnL=${result['avg_pnl']:.4f} | "
+                    f"Proj7d=${result['projected_equity']:.2f} (need ${target_equity:.2f})"
                 )
+
+                # Record this cycle
+                entry = {
+                    "name":             f"Cycle-{self.eval_cycle}",
+                    "timestamp":        datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "sl":               params["SL"],
+                    "target":           params["Target"],
+                    "ma_fast":          params["ma_fast"],
+                    "ma_slow":          params["ma_slow"],
+                    "win_rate":         result["win_rate"],
+                    "avg_pnl":          result["avg_pnl"],
+                    "current_equity":   result["current_equity"],
+                    "projected_equity": result["projected_equity"],
+                    "wins":             result["wins"],
+                    "losses":           result["losses"],
+                    "success":          on_track,
+                    "status":           (
+                        "on_track — live enabled"
+                        if on_track
+                        else "below target — continuing sim"
+                    ),
+                }
+                self.strategy_log.append(entry)
+                self._save_strategy_log()
+
+                if score > self.best_score:
+                    self.best_score  = score
+                    self.best_params = dict(params)
+                    self._post(
+                        f"New best params: SL={params['SL']}, Target={params['Target']}, "
+                        f"MA({params['ma_fast']}/{params['ma_slow']}) (score={score:.4f})"
+                    )
+
+                if on_track and not self.live_enabled:
+                    self.live_enabled = True
+                    set_force_sim(False)
+                    self._post(
+                        f"MILESTONE: Simulation meets 10× target! "
+                        f"WR={result['win_rate']:.1%}, Proj7d=${result['projected_equity']:.2f}. "
+                        f"Live trading enabled."
+                    )
+                elif not on_track:
+                    if self.live_enabled:
+                        self.live_enabled = False
+                        set_force_sim(True)
+                        self._post(
+                            "Performance fell below target. Reverting to simulation."
+                        )
+                    # Advance to next parameter combination
+                    self.param_index = (self.param_index + 1) % len(PARAM_GRID)
+                    new_sl, new_tp, new_fast, new_slow = PARAM_GRID[self.param_index]
+                    set_strategy_params({"SL": new_sl, "Target": new_tp, "ma_fast": new_fast, "ma_slow": new_slow})
+                    self._post(
+                        f"Switching to param set {self.param_index + 1}/{len(PARAM_GRID)}: "
+                        f"SL={new_sl}, Target={new_tp}, MA({new_fast}/{new_slow})"
+                    )
+
+            except Exception as e:
+                self._post(f"ERROR in eval cycle {self.eval_cycle}: {e} — continuing.")
 
     def stop(self):
         self.running = False
