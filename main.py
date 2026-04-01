@@ -485,6 +485,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
                 pnl -= sell_fee
 
             total_pnl += pnl
+            hold_secs = int(time.time() - buy_time)
             if sellprice < benchmark:
                 msg = (
                     f"✘ LOSS {asset} | sell ${sellprice:.6f} vs buy ${benchmark:.6f} | "
@@ -520,7 +521,6 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
 
             usdt_bal = get_usdt()
             dt = df.index[-1]
-            hold_secs = int(time.time() - buy_time)
             new_row = log(dt, asset, "sell", trade, sellprice, qty, cost, pc, lc, consec_pc, consec_lc, ind, usdt_bal, adjm, call_count,
                           pnl=pnl, split_pct=norm_diff, trend_dir=trend_label, risk_score=total_risk,
                           ma_fast=current_ma_fast, ma_slow=current_ma_slow, hold_seconds=hold_secs,
