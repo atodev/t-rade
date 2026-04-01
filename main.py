@@ -60,6 +60,7 @@ ai_log_queue   = Queue()
 ai_log_buffer  = []       # persists messages so popup can show history
 current_sl     = 0.990
 current_target = 1.010
+BNB_FEE_RATE   = 0.00075   # 0.075% Binance fee with BNB discount
 force_sim_override = False
 current_ma_fast = 9
 current_ma_slow = 21
@@ -427,8 +428,8 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         if abs(qty - buy_verify["filled_qty"]) > 0:
             status_queue.put(f"⚠ Fill qty mismatch: requested {qty}, filled {buy_verify['filled_qty']}")
     else:
-        buy_fee = 0.0
-        buy_fee_asset = ""
+        buy_fee = cost * BNB_FEE_RATE          # 0.075% sim fee (BNB discount, expressed as USDT cost)
+        buy_fee_asset = "USDT"
 
     global in_trade, current_buyprice, current_qty
     in_trade = True
@@ -479,8 +480,13 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             buyprice = current_price
             current_buyprice = current_price
             status_queue.put("!TAKE_PROFIT!")
-            if adjm == 1: SL = 0.9915
-            else: SL = 0.99
+            if adjm == 1:
+                # Ensure SL covers round-trip fees from original entry.
+                # SL must yield at least: benchmark * (1 + buy_fee + sell_fee rate)
+                fee_cover_sl = benchmark * (1 + 2 * BNB_FEE_RATE) / buyprice
+                SL = max(0.9915, fee_cover_sl)
+            else:
+                SL = 0.99
 
         df_current = df[["Close", "SMA_fast", "SMA_slow", "Volume"]]
         df_current.to_sql("coin", engine2, if_exists="replace", index=False)
@@ -506,9 +512,9 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
                 sell_fee   = sell_verify["fee"]
                 sell_fee_asset = sell_verify["fee_asset"]
             else:
-                sellprice  = current_price
-                sell_fee   = 0.0
-                sell_fee_asset = ""
+                sellprice      = current_price
+                sell_fee       = sellprice * qty * BNB_FEE_RATE   # 0.075% sim fee
+                sell_fee_asset = "USDT"
 
             total_fees = buy_fee + sell_fee
             # PnL net of both buy and sell fees (fees in quote asset already deducted by Binance,
