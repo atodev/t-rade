@@ -161,6 +161,19 @@ VOL_MIN = 5_000_000
 
 CANDIDATE_COUNT = 10
 
+def btc_is_bullish():
+    """Return True if BTC 30-min trend is up (SMA9 > SMA21). Used as macro gate."""
+    try:
+        klines = client.get_historical_klines("BTCUSDT", "30m", "700 min ago UTC")
+        if not klines:
+            return True  # Can't check — don't block
+        closes = pd.Series([float(k[4]) for k in klines])
+        sma9  = closes.rolling(9).mean().iloc[-1]
+        sma21 = closes.rolling(21).mean().iloc[-1]
+        return sma9 > sma21
+    except Exception:
+        return True  # Can't check — don't block
+
 def top_symbols():
     all_pairs = pd.DataFrame(client.get_ticker())
     relev = all_pairs[all_pairs.symbol.str.contains("USDT")]
@@ -270,6 +283,14 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     #    5/13 showed -$0.0766 avg P&L across 200+ trades.
     current_ma_fast = 9
     current_ma_slow = 21
+
+    # 2. BTC macro filter: only enter when BTC 30-min trend is bullish.
+    #    Altcoins follow BTC — entering longs during a BTC downtrend is the
+    #    primary driver of losses.
+    if not btc_is_bullish():
+        status_queue.put("BTC bearish (SMA9 < SMA21 on 30m) — skipping scan.")
+        time.sleep(60)
+        return
 
     # Trading window: unrestricted — need 200+ trades per hour before locking a window.
     # ─────────────────────────────────────────────────────────────────────────
