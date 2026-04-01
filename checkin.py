@@ -65,25 +65,51 @@ def parse_strategy_log():
 def parse_analytics():
     lines = read("analytics_report.md")
     result = {"best_hour": "?", "best_day": "?", "best_ma": "?", "best_risk": "?", "total_pnl": "?", "total_trades": "?"}
+    # Track best MA and best risk by scanning table rows
+    best_ma_pnl, best_risk_pnl = None, None
+    section = None
     for line in lines:
-        m = re.search(r"Best trading windows.*?(\d{2}):00", line)
+        # Section headings
+        if "## MA Configuration" in line:
+            section = "ma"
+        elif "## Risk Score Band" in line:
+            section = "risk"
+        elif line.startswith("## "):
+            section = None
+
+        # Best hour: "> **Best hour**: 19:00 UTC ..."
+        m = re.search(r"Best hour[^:]*:\s*(\d{2}):00 UTC", line)
         if m:
             result["best_hour"] = f"{m.group(1)}:00 UTC"
-        m = re.search(r"Best day.*?:\s*(\w+)", line)
-        if m:
+        # Best day: "> **Best day**: Tuesday ..."
+        m = re.search(r"Best day[^:]*:\s*\**(\w+)\**", line)
+        if m and m.group(1) not in ("day", "Day"):
             result["best_day"] = m.group(1)
-        m = re.search(r"Best MA config.*?:\s*([\d/]+)", line)
-        if m:
-            result["best_ma"] = m.group(1)
-        m = re.search(r"Best risk band.*?:\s*([\d\-\s\(\w]+)", line)
-        if m:
-            result["best_risk"] = m.group(1).strip()
-        m = re.search(r"Total P&L.*?\$([-\d.]+)", line)
+        # Total P&L: "- **Total P&L** ...: $-3.6380"
+        m = re.search(r"Total P&L[^$]*\$([-\d.]+)", line)
         if m:
             result["total_pnl"] = f"${m.group(1)}"
-        m = re.search(r"Total trades.*?(\d+)", line)
+        # Total trades: "- **Total trades**: 529"
+        m = re.search(r"Total trades[^\d]*(\d+)", line)
         if m:
             result["total_trades"] = m.group(1)
+
+        # MA table row: "9/21   259   44%  $  4.5679  $  0.0176   34.7m"
+        if section == "ma":
+            m = re.search(r"^(\d+/\d+)\s+\d+\s+\d+%\s+\$\s*[-\d.]+\s+\$\s*([-\d.]+)", line)
+            if m:
+                pnl = float(m.group(2))
+                if best_ma_pnl is None or pnl > best_ma_pnl:
+                    best_ma_pnl = pnl
+                    result["best_ma"] = m.group(1)
+        # Risk table row: "2–4   156   57%  $  20.1246  $  0.1290   38.1m"
+        if section == "risk":
+            m = re.search(r"^(\S+)\s+\d+\s+\d+%\s+\$\s*[-\d.]+\s+\$\s*([-\d.]+)", line)
+            if m and re.match(r"[\d]", m.group(1)):
+                pnl = float(m.group(2))
+                if best_risk_pnl is None or pnl > best_risk_pnl:
+                    best_risk_pnl = pnl
+                    result["best_risk"] = m.group(1)
     return result
 
 def parse_trades():
