@@ -8,9 +8,11 @@ import os
 import sys
 import re
 from datetime import datetime, timezone
+from dotenv import load_dotenv
 
-TELEGRAM_TOKEN = "8170435522:AAFtHr5O_qLJbttJ__3F-2ZTad-HtvW2wUo"
-TELEGRAM_CHAT  = "6898122359"
+load_dotenv()
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT  = os.getenv("TELEGRAM_CHAT_ID")
 TARGET_EQUITY  = 180.76
 
 def read(path, tail=0):
