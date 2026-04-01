@@ -158,8 +158,10 @@ if proj_num > 0 and proj_num < TARGET_EQUITY * 0.5:
     warnings.append(f"Projected equity ${proj_num:.2f} far below ${TARGET_EQUITY} target")
 warn_str = "; ".join(warnings) if warnings else "NONE"
 
+now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+
 msg = (
-    f"t-rade check-in (cycle {sl['cycle']})\n\n"
+    f"t-rade check-in (cycle {sl['cycle']}) — {now_str}\n\n"
     f"STATUS: {sl['status']} | SL={sl['sl']} TP={sl['target']} MA({sl['ma']})\n\n"
     f"PERFORMANCE:\n"
     f"  Win rate: {sl['wr']}\n"

@@ -162,17 +162,30 @@ VOL_MIN = 5_000_000
 CANDIDATE_COUNT = 10
 
 def btc_is_bullish():
-    """Return True if BTC 30-min trend is up (SMA9 > SMA21). Used as macro gate."""
+    """Block only when BTC is in an active downtrend on 5m.
+    Uses spread = (SMA9 - SMA21) / price as a %.
+    Blocks only if spread is negative AND widening downward (trend accelerating down).
+    A sideways or recovering BTC is allowed through.
+    """
     try:
-        klines = client.get_historical_klines("BTCUSDT", "30m", "700 min ago UTC")
+        klines = client.get_historical_klines("BTCUSDT", "5m", "200 min ago UTC")
         if not klines:
-            return True  # Can't check — don't block
+            return True
         closes = pd.Series([float(k[4]) for k in klines])
-        sma9  = closes.rolling(9).mean().iloc[-1]
-        sma21 = closes.rolling(21).mean().iloc[-1]
-        return sma9 > sma21
+        sma9  = closes.rolling(9).mean()
+        sma21 = closes.rolling(21).mean()
+        price = closes.iloc[-1]
+        spread_now  = (sma9.iloc[-1]  - sma21.iloc[-1])  / price * 100
+        spread_prev = (sma9.iloc[-6]  - sma21.iloc[-6])  / price * 100
+        downtrend_active = spread_now < 0 and spread_now < spread_prev
+        if downtrend_active:
+            status_queue.put(
+                f"BTC 5m spread {spread_now:.3f}% (was {spread_prev:.3f}%) — downtrend active, skipping."
+            )
+            return False
+        return True
     except Exception:
-        return True  # Can't check — don't block
+        return True
 
 def top_symbols():
     all_pairs = pd.DataFrame(client.get_ticker())
@@ -182,6 +195,7 @@ def top_symbols():
     non_lev['quoteVolume'] = non_lev['quoteVolume'].astype(float)
     non_lev['priceChangePercent'] = non_lev['priceChangePercent'].astype(float)
     non_lev = non_lev[non_lev['quoteVolume'] >= VOL_MIN]
+    non_lev = non_lev[non_lev['symbol'].str.isascii()]
     ranked = non_lev.sort_values('priceChangePercent', ascending=False).head(CANDIDATE_COUNT)
     return list(zip(ranked['symbol'].values, ranked['priceChangePercent'].values))
 
