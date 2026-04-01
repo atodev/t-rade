@@ -428,7 +428,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         if abs(qty - buy_verify["filled_qty"]) > 0:
             status_queue.put(f"⚠ Fill qty mismatch: requested {qty}, filled {buy_verify['filled_qty']}")
     else:
-        buy_fee = cost * BNB_FEE_RATE          # 0.075% sim fee (BNB discount, expressed as USDT cost)
+        buy_fee = qty * buyprice * BNB_FEE_RATE   # 0.075% sim fee (BNB discount, expressed as USDT cost)
         buy_fee_asset = "USDT"
 
     global in_trade, current_buyprice, current_qty
