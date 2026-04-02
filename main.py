@@ -96,9 +96,20 @@ def telegram_notify(message: str):
 
 # --- Functions ---
 
+def get_fear_greed():
+    """Fetch current Fear & Greed index (0–100) from alternative.me. Returns (value, label)."""
+    try:
+        req = urllib.request.Request("https://api.alternative.me/fng/?limit=1")
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = _json.loads(r.read())
+        entry = data["data"][0]
+        return int(entry["value"]), entry["value_classification"]
+    except Exception:
+        return None, "unknown"
+
 def log(dt, asset, action, trade, benchmark, qty, cost, pc, lc, consec_pc, consec_lc, ind, usdt_bal, adjm, call_count,
         pnl=0.0, split_pct=0.0, trend_dir="–", risk_score=0.0, ma_fast=9, ma_slow=21, hold_seconds=0,
-        fee=0.0, fee_asset=""):
+        fee=0.0, fee_asset="", fear_greed=None):
     ts = pd.Timestamp(dt) if not isinstance(dt, pd.Timestamp) else dt
     new_row = pd.DataFrame.from_records(
         [{
@@ -128,6 +139,7 @@ def log(dt, asset, action, trade, benchmark, qty, cost, pc, lc, consec_pc, conse
             "ma_fast":      ma_fast,
             "ma_slow":      ma_slow,
             "hold_seconds": hold_seconds,
+            "fear_greed":   fear_greed,
         }], index=[0]
     )
     return new_row
@@ -297,6 +309,11 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     # MA is controlled by the AI engine (default 9/21, best performer historically).
     # Do not override here — let the AI cycle through PARAM_GRID entries.
 
+    # Fetch Fear & Greed once per strategy call — logged with every trade.
+    fg_value, fg_label = get_fear_greed()
+    if fg_value is not None:
+        status_queue.put(f"Fear & Greed: {fg_value} ({fg_label})")
+
     # 2. BTC macro filter: only enter when BTC 30-min trend is bullish.
     #    Altcoins follow BTC — entering longs during a BTC downtrend is the
     #    primary driver of losses.
@@ -458,7 +475,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     new_row = log(dt, asset, "buy", trade, benchmark, qty, cost, pc, lc, consec_pc, consec_lc, "b", usdt_bal, adjm, call_count,
                   pnl=0.0, split_pct=norm_diff, trend_dir=trend_label, risk_score=total_risk,
                   ma_fast=current_ma_fast, ma_slow=current_ma_slow, hold_seconds=0,
-                  fee=buy_fee, fee_asset=buy_fee_asset)
+                  fee=buy_fee, fee_asset=buy_fee_asset, fear_greed=fg_value)
     df_log = pd.concat([df_log, new_row])
     telegram_notify(
         f"🔵 <b>BUY [{'LIVE' if trade else 'SIM'}]</b> {asset}\n"
@@ -578,7 +595,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             new_row = log(dt, asset, "sell", trade, sellprice, qty, cost, pc, lc, consec_pc, consec_lc, ind, usdt_bal, adjm, call_count,
                           pnl=pnl, split_pct=norm_diff, trend_dir=trend_label, risk_score=total_risk,
                           ma_fast=current_ma_fast, ma_slow=current_ma_slow, hold_seconds=hold_secs,
-                          fee=sell_fee, fee_asset=sell_fee_asset)
+                          fee=sell_fee, fee_asset=sell_fee_asset, fear_greed=fg_value)
             df_log = pd.concat([df_log, new_row])
             df_log.to_csv("trades.csv", mode="a", index=False, header=False)
             df_log.to_sql("log", engine3, if_exists="append", index=False)
