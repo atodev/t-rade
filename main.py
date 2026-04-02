@@ -26,6 +26,15 @@ engine = create_engine("sqlite:///LivepriceDB.db")
 engine2 = create_engine("sqlite:///currpriceDB.db")
 engine3 = create_engine("sqlite:///loggerDB.db")
 
+# Migrate loggerDB — add any columns introduced after initial creation
+with engine3.connect() as _conn:
+    _existing = [row[1] for row in _conn.execute(__import__("sqlalchemy").text("PRAGMA table_info(log)")).fetchall()]
+    if _existing:  # table exists
+        for _col, _typedef in [("fear_greed", "INTEGER")]:
+            if _col not in _existing:
+                _conn.execute(__import__("sqlalchemy").text(f"ALTER TABLE log ADD COLUMN {_col} {_typedef}"))
+                _conn.commit()
+
 # Trading State
 pc = 0
 lc = 0
