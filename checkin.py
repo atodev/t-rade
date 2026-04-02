@@ -125,14 +125,25 @@ def parse_trades():
             break
     return wins, losses, consec
 
+def get_fear_greed():
+    try:
+        req = urllib.request.Request("https://api.alternative.me/fng/?limit=1")
+        with urllib.request.urlopen(req, timeout=5) as r:
+            import json
+            data = json.loads(r.read())
+        entry = data["data"][0]
+        return int(entry["value"]), entry["value_classification"]
+    except Exception:
+        return None, "unknown"
+
 def parse_milestone():
     lines = read("milestone_log.md")
     for line in reversed(lines):
         m = re.search(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]", line)
         if m:
             try:
-                ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-                age_mins = (datetime.now(timezone.utc) - ts).seconds // 60
+                ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")  # local time, no tz
+                age_mins = int((datetime.now() - ts).total_seconds() // 60)
                 return age_mins
             except Exception:
                 pass
@@ -144,6 +155,7 @@ sl   = parse_strategy_log()
 an   = parse_analytics()
 w, l, consec = parse_trades()
 milestone_age = parse_milestone()
+fg_value, fg_label = get_fear_greed()
 
 warnings = []
 wr_num = float(re.search(r"([\d.]+)%", sl["wr"]).group(1)) if "%" in sl["wr"] else 0
@@ -167,6 +179,8 @@ msg = (
     f"  Win rate: {sl['wr']}\n"
     f"  Avg PnL: {sl['avg_pnl']} | Total: {an['total_pnl']}\n"
     f"  Trades: {an['total_trades']} | Projected 7d: {sl['proj']} / ${TARGET_EQUITY}\n\n"
+    f"MARKET:\n"
+    f"  Fear & Greed: {fg_value} — {fg_label}\n\n"
     f"BEST CONDITIONS:\n"
     f"  Hour: {an['best_hour']} | Day: {an['best_day']}\n"
     f"  MA: {an['best_ma']} | Risk: {an['best_risk']}\n\n"

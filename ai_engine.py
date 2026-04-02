@@ -43,7 +43,7 @@ TRADE_CSV_COLS = [
     "price", "quantity", "cost", "pnl", "fee", "fee_asset",
     "profit_count", "loss_count", "consec_gain", "consec_loss", "indicator",
     "balance", "adjustment", "calls",
-    "split_pct", "trend_dir", "risk_score", "ma_fast", "ma_slow", "hold_seconds",
+    "split_pct", "trend_dir", "risk_score", "ma_fast", "ma_slow", "hold_seconds", "fear_greed",
 ]
 
 

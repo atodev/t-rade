@@ -26,7 +26,7 @@ COLS = [
     "price", "quantity", "cost", "pnl", "fee", "fee_asset",
     "profit_count", "loss_count", "consec_gain", "consec_loss", "indicator",
     "balance", "adjustment", "calls",
-    "split_pct", "trend_dir", "risk_score", "ma_fast", "ma_slow", "hold_seconds",
+    "split_pct", "trend_dir", "risk_score", "ma_fast", "ma_slow", "hold_seconds", "fear_greed",
 ]
 
 DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
@@ -207,6 +207,26 @@ def generate_report() -> str:
     hold_rows = _group_stats(sells_hold, "hold_band",
                              order=["<5m", "5–15m", "15–30m", "30–60m", ">60m"])
     lines.append(_section("Hold Time Band", hold_rows))
+
+    # ── Fear & Greed band ─────────────────────────────────────────────────────
+    sells_fg = sells.dropna(subset=["fear_greed"]).copy()
+    sells_fg["fear_greed"] = pd.to_numeric(sells_fg["fear_greed"], errors="coerce")
+    sells_fg = sells_fg.dropna(subset=["fear_greed"])
+    if not sells_fg.empty:
+        sells_fg["fg_band"] = pd.cut(
+            sells_fg["fear_greed"],
+            bins=[0, 25, 45, 55, 75, 100],
+            labels=["Extreme Fear (0–25)", "Fear (25–45)", "Neutral (45–55)", "Greed (55–75)", "Extreme Greed (75–100)"],
+            right=True, include_lowest=True,
+        ).astype(str)
+        fg_rows = _group_stats(sells_fg, "fg_band",
+                               order=["Extreme Fear (0–25)", "Fear (25–45)", "Neutral (45–55)", "Greed (55–75)", "Extreme Greed (75–100)"])
+        if fg_rows:
+            scored_fg = [(r[0], r[4]) for r in fg_rows if r[1] + r[2] >= 3]
+            if scored_fg:
+                best_fg = max(scored_fg, key=lambda x: x[1])
+                lines.append(f"> **Best F&G condition**: {best_fg[0]} (avg P&L ${best_fg[1]:.4f})\n")
+            lines.append(_section("Fear & Greed Index Band", fg_rows))
 
     # ── Session mode ──────────────────────────────────────────────────────────
     sells_s = sells.dropna(subset=["session_mode"])
