@@ -131,8 +131,8 @@ def parse_milestone():
         m = re.search(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]", line)
         if m:
             try:
-                ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
-                age_mins = (datetime.now(timezone.utc) - ts).seconds // 60
+                ts = datetime.strptime(m.group(1), "%Y-%m-%d %H:%M:%S")  # local time, no tz
+                age_mins = int((datetime.now() - ts).total_seconds() // 60)
                 return age_mins
             except Exception:
                 pass
