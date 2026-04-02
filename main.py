@@ -379,9 +379,24 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             status_queue.put(f"{candidate} skipped — risk {total_risk:.1f} in dead zone (0–2 or 6–8).")
             continue
 
+        # ── Price trajectory confidence ──────────────────────────────────────
+        # Count how many of the last 3 candles closed higher than the previous.
+        # 0/2 = falling, 1/2 = mixed, 2/2 = rising. Block on 0/2 (both falling).
+        closes = df_c['Close'].iloc[-4:].values   # 4 closes → 3 consecutive pairs
+        rising_steps = sum(closes[i] > closes[i-1] for i in range(1, len(closes)))
+        price_confidence = rising_steps / (len(closes) - 1)   # 0.0 – 1.0
+
+        if rising_steps == 0:
+            status_queue.put(
+                f"{candidate} skipped — price falling all 3 candles (conf=0%)."
+            )
+            continue
+        # ─────────────────────────────────────────────────────────────────────
+
         status_queue.put(
             f"{candidate} MA({current_ma_fast}/{current_ma_slow}) "
-            f"split={norm_diff:.3f}% trend={trend_label} risk={total_risk:.1f}"
+            f"split={norm_diff:.3f}% trend={trend_label} risk={total_risk:.1f} "
+            f"conf={price_confidence:.0%}"
         )
         # ─────────────────────────────────────────────────────────────────────
 
