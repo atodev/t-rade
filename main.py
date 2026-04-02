@@ -18,6 +18,7 @@ from ai_engine import AIStrategyEngine
 import analytics
 import urllib.request
 import json as _json
+from datetime import datetime, timedelta
 
 # --- Global Variables and Initializations ---
 
@@ -70,6 +71,14 @@ ai_log_buffer  = []       # persists messages so popup can show history
 current_sl     = 0.990
 current_target = 1.010
 BNB_FEE_RATE   = 0.00075   # 0.075% Binance fee with BNB discount
+
+# Token blacklist / whitelist
+TOKEN_LIST_FILE          = "token_lists.json"
+BLACKLIST_LOSSES_TRIGGER = 2    # losses within window to blacklist
+BLACKLIST_WINDOW_HOURS   = 1    # rolling window to count losses
+BLACKLIST_DURATION_HOURS = 3    # how long the blacklist lasts
+WHITELIST_WINS_TRIGGER   = 2    # wins within window to whitelist
+WHITELIST_DURATION_HOURS = 2    # how long the whitelist lasts
 force_sim_override = False
 current_ma_fast = 9
 current_ma_slow = 21
@@ -104,6 +113,60 @@ def telegram_notify(message: str):
         pass
 
 # --- Functions ---
+
+def load_token_lists():
+    try:
+        with open(TOKEN_LIST_FILE) as f:
+            data = _json.load(f)
+        now = datetime.now()
+        data["blacklist"] = {k: v for k, v in data.get("blacklist", {}).items()
+                             if datetime.fromisoformat(v) > now}
+        data["whitelist"] = {k: v for k, v in data.get("whitelist", {}).items()
+                             if datetime.fromisoformat(v) > now}
+        return data
+    except Exception:
+        return {"blacklist": {}, "whitelist": {}}
+
+def save_token_lists(data):
+    try:
+        with open(TOKEN_LIST_FILE, "w") as f:
+            _json.dump(data, f, indent=2)
+    except Exception:
+        pass
+
+def update_token_lists(asset, won):
+    """Called after every sell. Adds to blacklist or whitelist based on recent performance."""
+    lists = load_token_lists()
+    now   = datetime.now()
+    try:
+        df = pd.read_csv("trades.csv", header=None)
+        # col 3 = asset, col 4 = action, col 16 = indicator, col 0 = datetime
+        df.columns = range(len(df.columns))
+        cutoff  = now - timedelta(hours=BLACKLIST_WINDOW_HOURS)
+        recent  = df[(df[3] == asset) & (df[4] == "sell") &
+                     (pd.to_datetime(df[0], errors="coerce") >= cutoff)]
+        r_wins   = int((recent[16] == "p").sum())
+        r_losses = int((recent[16] == "l").sum())
+    except Exception:
+        r_wins, r_losses = (1, 0) if won else (0, 1)
+
+    if r_losses >= BLACKLIST_LOSSES_TRIGGER:
+        expiry = (now + timedelta(hours=BLACKLIST_DURATION_HOURS)).isoformat()
+        lists["blacklist"][asset] = expiry
+        lists["whitelist"].pop(asset, None)
+        status_queue.put(
+            f"⛔ {asset} blacklisted {BLACKLIST_DURATION_HOURS}h "
+            f"({r_losses} losses in last {BLACKLIST_WINDOW_HOURS}h)"
+        )
+    elif r_wins >= WHITELIST_WINS_TRIGGER:
+        expiry = (now + timedelta(hours=WHITELIST_DURATION_HOURS)).isoformat()
+        lists["whitelist"][asset] = expiry
+        lists["blacklist"].pop(asset, None)
+        status_queue.put(
+            f"⭐ {asset} whitelisted {WHITELIST_DURATION_HOURS}h "
+            f"({r_wins} wins in last {WHITELIST_WINDOW_HOURS}h)"
+        )
+    save_token_lists(lists)
 
 def get_fear_greed():
     """Fetch current Fear & Greed index (0–100) from alternative.me. Returns (value, label)."""
@@ -345,10 +408,18 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
 
     asset, percentage, df, total_risk, qty = None, 0, None, 0, 0
     MIN_NOTIONAL = 10.0
+    norm_diff, trend_label, price_confidence = 0.0, "widening", 0.0
+
+    token_lists = load_token_lists()
+    blacklist   = token_lists.get("blacklist", {})
+    whitelist   = token_lists.get("whitelist", {})
 
     for candidate, pct in candidates:
         if candidate == last_asset:
             status_queue.put(f"{candidate} skipped — previous loss.")
+            continue
+        if candidate in blacklist:
+            status_queue.put(f"{candidate} skipped — blacklisted.")
             continue
         try:
             df_c = getminutedata(candidate, "1m", "30", current_ma_fast, current_ma_slow)
@@ -433,6 +504,53 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         buy_amt = max(MIN_NOTIONAL, int(buy_proportion * usdt_bal))
         qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
         break
+
+    if asset is None and whitelist:
+        status_queue.put(f"No candidate in top scan — trying {len(whitelist)} whitelisted token(s).")
+        for wl_asset in list(whitelist.keys()):
+            try:
+                df_c = getminutedata(wl_asset, "1m", "30", current_ma_fast, current_ma_slow)
+                if df_c.empty:
+                    continue
+            except Exception:
+                continue
+            time.sleep(2)
+            momentum_condition = ((df_c.Close.pct_change() + 1).cumprod()).iloc[-1] > 1
+            ma_condition = df_c['SMA_fast'].iloc[-1] > df_c['SMA_slow'].iloc[-1]
+            if not momentum_condition or not ma_condition:
+                continue
+            close_now  = df_c['Close'].iloc[-1]
+            split_now  = df_c['SMA_fast'].iloc[-1] - df_c['SMA_slow'].iloc[-1]
+            norm_diff  = (split_now / close_now) * 100 if close_now > 0 else 0
+            if norm_diff < MIN_SPLIT_PCT:
+                continue
+            split_prev     = df_c['SMA_fast'].iloc[-6] - df_c['SMA_slow'].iloc[-6] if len(df_c) >= 6 else split_now
+            trend_widening = split_now > split_prev
+            if not trend_widening:
+                continue
+            trend_label = "widening"
+            wl_closes       = df_c['Close'].iloc[-4:].values
+            rising_steps    = sum(wl_closes[i] > wl_closes[i-1] for i in range(1, len(wl_closes)))
+            price_confidence = rising_steps / (len(wl_closes) - 1)
+            if rising_steps == 0:
+                continue
+            ma_diff_risk = abs(norm_diff) * 10
+            vol_mean = df_c['Volume'].mean()
+            vol_std  = df_c['Volume'].std()
+            wl_vol_risk = 0
+            if vol_std > 0:
+                wl_vol_risk = max(0, (df_c['Volume'].iloc[-1] - vol_mean) / vol_std) * 2
+            total_risk = min(10, (ma_diff_risk + wl_vol_risk) / 2)
+            if total_risk < 2 or (6 <= total_risk < 8):
+                continue
+            status_queue.put(
+                f"⭐ Whitelist: {wl_asset} split={norm_diff:.3f}% risk={total_risk:.1f} conf={price_confidence:.0%}"
+            )
+            asset, percentage, df = wl_asset, 0.0, df_c
+            buy_proportion = 0.5 - total_risk * 0.045
+            buy_amt = max(MIN_NOTIONAL, int(buy_proportion * usdt_bal))
+            qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
+            break
 
     if asset is None:
         status_queue.put("No valid candidate found — waiting 60s before next scan.")
@@ -613,6 +731,8 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
                 analytics.generate_report()
             except Exception:
                 pass
+
+            update_token_lists(asset, ind == "p")
 
             in_trade = False
             current_buyprice = 0.0

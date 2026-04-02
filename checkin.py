@@ -64,9 +64,12 @@ def parse_strategy_log():
 
 def parse_analytics():
     lines = read("analytics_report.md")
-    result = {"best_hour": "?", "best_day": "?", "best_ma": "?", "best_risk": "?", "total_pnl": "?", "total_trades": "?"}
-    # Track best MA and best risk by scanning table rows
+    result = {"best_hour": "?", "best_day": "?", "best_ma": "?", "best_risk": "?",
+              "total_pnl": "?", "total_trades": "?",
+              "best_tokens": "?", "worst_tokens": "?"}
+    # Track best MA, best risk, best/worst tokens by scanning table rows
     best_ma_pnl, best_risk_pnl = None, None
+    token_rows = []   # (symbol, avg_pnl, trades)
     section = None
     for line in lines:
         # Section headings
@@ -74,6 +77,8 @@ def parse_analytics():
             section = "ma"
         elif "## Risk Score Band" in line:
             section = "risk"
+        elif "## Asset" in line:
+            section = "asset"
         elif line.startswith("## "):
             section = None
 
@@ -110,6 +115,20 @@ def parse_analytics():
                 if best_risk_pnl is None or pnl > best_risk_pnl:
                     best_risk_pnl = pnl
                     result["best_risk"] = m.group(1)
+
+        # Asset table row: "DUSDT   60   50%   $9.5055   $0.1584   5.5m"
+        if section == "asset":
+            m = re.search(r"^([A-Z]+USDT)\s+(\d+)\s+\d+%\s+\$\s*[-\d.]+\s+\$\s*([-\d.]+)", line)
+            if m and int(m.group(2)) >= 3:
+                token_rows.append((m.group(1), float(m.group(3))))
+
+    if token_rows:
+        token_rows.sort(key=lambda x: x[1], reverse=True)
+        best  = ", ".join(f"{t}(${p:+.3f})" for t, p in token_rows[:2])
+        worst = ", ".join(f"{t}(${p:+.3f})" for t, p in token_rows[-2:])
+        result["best_tokens"]  = best
+        result["worst_tokens"] = worst
+
     return result
 
 def parse_trades():
@@ -181,6 +200,9 @@ msg = (
     f"  Trades: {an['total_trades']} | Projected 7d: {sl['proj']} / ${TARGET_EQUITY}\n\n"
     f"MARKET:\n"
     f"  Fear & Greed: {fg_value} — {fg_label}\n\n"
+    f"TOKENS:\n"
+    f"  Best:  {an['best_tokens']}\n"
+    f"  Worst: {an['worst_tokens']}\n\n"
     f"BEST CONDITIONS:\n"
     f"  Hour: {an['best_hour']} | Day: {an['best_day']}\n"
     f"  MA: {an['best_ma']} | Risk: {an['best_risk']}\n\n"
