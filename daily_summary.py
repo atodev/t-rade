@@ -210,6 +210,13 @@ def get_fear_greed():
     return None, "unknown"
 
 def get_btc_dominance():
+    # Try CMC first, fall back to CoinGecko (may be stale on free tier)
+    data = fetch_json("https://api.coinmarketcap.com/data-api/v3/global-metrics/quotes/latest")
+    if data:
+        try:
+            return round(data["data"]["btcDominance"], 1)
+        except Exception:
+            pass
     data = fetch_json("https://api.coingecko.com/api/v3/global")
     if data:
         try:
