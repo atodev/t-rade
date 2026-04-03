@@ -178,7 +178,7 @@ def update_token_lists(asset, won):
         lists["blacklist"].pop(asset, None)
         status_queue.put(
             f"⭐ {asset} whitelisted {WHITELIST_DURATION_HOURS}h "
-            f"({r_wins} wins in last {WHITELIST_WINDOW_HOURS}h)"
+            f"({r_wins} wins in last {BLACKLIST_WINDOW_HOURS}h)"
         )
     save_token_lists(lists)
 
@@ -1066,7 +1066,7 @@ def create_main_window():
 
     in_trade_frame = ttk.LabelFrame(session_frame, text="In Trade", padding="5")
     in_trade_frame.pack(fill=tk.X, pady=5)
-    current_price_label = tk.Label(in_trade_frame, text="Current Price: --", fg="white", bg="#2E2E2E", font=("Helvetica", 12, "bold"))
+    current_price_label = tk.Label(in_trade_frame, text="Current Price: --", fg="white", bg="#2E2E2E", font=("Helvetica", 11, "bold"))
     current_price_label.pack(anchor="w")
     in_trade_var = tk.StringVar(value="Not in trade")
     ttk.Label(in_trade_frame, textvariable=in_trade_var).pack(anchor="w")
