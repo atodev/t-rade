@@ -138,17 +138,31 @@ def update_token_lists(asset, won):
     """Called after every sell. Adds to blacklist or whitelist based on recent performance."""
     lists = load_token_lists()
     now   = datetime.now()
+    # Read only the columns we need by position — robust to variable column counts
+    # (old rows: 26 cols, new rows: 27 cols with fear_greed)
+    r_wins, r_losses = 0, 0
     try:
-        df = pd.read_csv("trades.csv", header=None)
-        # col 3 = asset, col 4 = action, col 16 = indicator, col 0 = datetime
-        df.columns = range(len(df.columns))
-        cutoff  = now - timedelta(hours=BLACKLIST_WINDOW_HOURS)
-        recent  = df[(df[3] == asset) & (df[4] == "sell") &
-                     (pd.to_datetime(df[0], errors="coerce") >= cutoff)]
-        r_wins   = int((recent[16] == "p").sum())
-        r_losses = int((recent[16] == "l").sum())
-    except Exception:
-        r_wins, r_losses = (1, 0) if won else (0, 1)
+        cutoff = now - timedelta(hours=BLACKLIST_WINDOW_HOURS)
+        with open("trades.csv") as fh:
+            for line in fh:
+                parts = line.strip().split(",")
+                if len(parts) < 17:
+                    continue
+                if parts[3] != asset or parts[4] != "sell":
+                    continue
+                try:
+                    ts = pd.to_datetime(parts[0], errors="coerce")
+                    if pd.isna(ts) or ts < cutoff:
+                        continue
+                except Exception:
+                    continue
+                ind = parts[16]
+                if ind == "p":
+                    r_wins += 1
+                elif ind == "l":
+                    r_losses += 1
+    except Exception as e:
+        status_queue.put(f"token_lists read error: {e}")
 
     if r_losses >= BLACKLIST_LOSSES_TRIGGER:
         expiry = (now + timedelta(hours=BLACKLIST_DURATION_HOURS)).isoformat()
