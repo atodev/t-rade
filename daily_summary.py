@@ -227,7 +227,8 @@ def build_equity_chart(trades):
         import matplotlib.pyplot as plt
         import matplotlib.dates as mdates
         import numpy as np
-    except ImportError:
+    except ImportError as e:
+        print(f"matplotlib not available: {e}")
         return None
 
     now      = datetime.now()
@@ -426,10 +427,14 @@ print(msg)
 send_text(msg)
 print("Daily summary sent.")
 
-chart = build_equity_chart(trades)
-if chart:
-    try:
+try:
+    chart = build_equity_chart(trades)
+    if chart:
         send_photo(chart, caption=f"Equity trajectory — Day {elapsed}/{TOTAL_DAYS}")
         print("Equity chart sent.")
-    except Exception as e:
-        print(f"Chart send failed: {e}")
+    else:
+        print("Chart build returned None — check matplotlib install.")
+except Exception as e:
+    import traceback
+    print(f"Chart error: {e}")
+    traceback.print_exc()
