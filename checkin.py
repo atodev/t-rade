@@ -155,6 +155,20 @@ def get_fear_greed():
     except Exception:
         return None, "unknown"
 
+def get_btc_dominance():
+    try:
+        import json
+        req = urllib.request.Request(
+            "https://api.coingecko.com/api/v3/global",
+            headers={"User-Agent": "t-rade/1.0"}
+        )
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read())
+        dom = data["data"]["market_cap_percentage"]["btc"]
+        return round(dom, 1)
+    except Exception:
+        return None
+
 def parse_milestone():
     lines = read("milestone_log.md")
     for line in reversed(lines):
@@ -175,6 +189,7 @@ an   = parse_analytics()
 w, l, consec = parse_trades()
 milestone_age = parse_milestone()
 fg_value, fg_label = get_fear_greed()
+btc_dom = get_btc_dominance()
 
 warnings = []
 wr_num = float(re.search(r"([\d.]+)%", sl["wr"]).group(1)) if "%" in sl["wr"] else 0
@@ -199,7 +214,8 @@ msg = (
     f"  Avg PnL: {sl['avg_pnl']} | Total: {an['total_pnl']}\n"
     f"  Trades: {an['total_trades']} | Projected 7d: {sl['proj']} / ${TARGET_EQUITY}\n\n"
     f"MARKET:\n"
-    f"  Fear & Greed: {fg_value} — {fg_label}\n\n"
+    f"  Fear & Greed: {fg_value} — {fg_label}\n"
+    f"  BTC Dominance: {f'{btc_dom}%' if btc_dom is not None else '?'}\n\n"
     f"TOKENS:\n"
     f"  Best:  {an['best_tokens']}\n"
     f"  Worst: {an['worst_tokens']}\n\n"
