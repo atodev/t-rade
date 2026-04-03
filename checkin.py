@@ -7,7 +7,9 @@ import urllib.parse
 import os
 import sys
 import re
-from datetime import datetime, timezone
+import io
+import json
+from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -30,6 +32,125 @@ def send(msg):
         data=data
     )
     urllib.request.urlopen(req, timeout=10)
+
+def send_photo(img_bytes, caption=""):
+    """Send a PNG image to Telegram via multipart/form-data."""
+    boundary = b"----TradeBotBoundary"
+    def part(name, value, filename=None, content_type=None):
+        disp = f'Content-Disposition: form-data; name="{name}"'
+        if filename:
+            disp += f'; filename="{filename}"'
+        header = f"--{boundary.decode()}\r\n{disp}\r\n"
+        if content_type:
+            header += f"Content-Type: {content_type}\r\n"
+        return header.encode() + b"\r\n" + (value if isinstance(value, bytes) else value.encode()) + b"\r\n"
+
+    body = (
+        part("chat_id", TELEGRAM_CHAT) +
+        part("caption", caption) +
+        part("photo", img_bytes, filename="chart.png", content_type="image/png") +
+        f"--{boundary.decode()}--\r\n".encode()
+    )
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendPhoto",
+        data=body,
+        headers={"Content-Type": f"multipart/form-data; boundary={boundary.decode()}"}
+    )
+    urllib.request.urlopen(req, timeout=15)
+
+def build_wl_chart(hours=1):
+    """
+    Build a two-column bar chart: wins vs losses in the last `hours` hours.
+    Returns PNG bytes, or None if matplotlib unavailable or no data.
+    """
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import matplotlib.patches as mpatches
+    except ImportError:
+        return None
+
+    try:
+        cutoff = datetime.now() - timedelta(hours=hours)
+        wins = losses = 0
+        # Also collect per-hour bars for the past 6 hours
+        hourly = {}
+        with open("trades.csv") as fh:
+            for line in fh:
+                parts = line.strip().split(",")
+                if len(parts) < 17 or parts[4] != "sell":
+                    continue
+                try:
+                    ts = datetime.strptime(parts[0][:19], "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    continue
+                ind = parts[16]
+                # per-hour buckets for last 6 hours
+                for h in range(6):
+                    bucket_start = datetime.now().replace(minute=0, second=0, microsecond=0) - timedelta(hours=h)
+                    bucket_end   = bucket_start + timedelta(hours=1)
+                    if bucket_start <= ts < bucket_end:
+                        key = bucket_start.strftime("%H:%M")
+                        if key not in hourly:
+                            hourly[key] = [0, 0]
+                        if ind == "p":
+                            hourly[key][0] += 1
+                        elif ind == "l":
+                            hourly[key][1] += 1
+                        break
+                if ts >= cutoff:
+                    if ind == "p":
+                        wins += 1
+                    elif ind == "l":
+                        losses += 1
+    except Exception:
+        return None
+
+    fig, axes = plt.subplots(1, 2, figsize=(9, 3.5), facecolor="#1a1a2e")
+    fig.suptitle("t-rade Win/Loss", color="white", fontsize=11, fontweight="bold")
+
+    # Left: simple two-bar last-hour summary
+    ax1 = axes[0]
+    ax1.set_facecolor("#16213e")
+    bars = ax1.bar(["Wins", "Losses"], [wins, losses],
+                   color=["#00c897", "#e05c5c"], width=0.5, edgecolor="none")
+    for bar, val in zip(bars, [wins, losses]):
+        ax1.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.1,
+                 str(val), ha="center", va="bottom", color="white", fontsize=13, fontweight="bold")
+    ax1.set_title(f"Last {hours}h", color="#aaaaaa", fontsize=9)
+    ax1.set_ylim(0, max(wins, losses, 1) + 2)
+    ax1.tick_params(colors="white")
+    ax1.spines[:].set_visible(False)
+    ax1.yaxis.set_visible(False)
+
+    # Right: stacked bar per hour for last 6 hours
+    ax2 = axes[1]
+    ax2.set_facecolor("#16213e")
+    if hourly:
+        labels = sorted(hourly.keys())
+        w_vals = [hourly[k][0] for k in labels]
+        l_vals = [hourly[k][1] for k in labels]
+        x = range(len(labels))
+        ax2.bar(x, w_vals, color="#00c897", label="W", edgecolor="none")
+        ax2.bar(x, l_vals, bottom=w_vals, color="#e05c5c", label="L", edgecolor="none")
+        ax2.set_xticks(list(x))
+        ax2.set_xticklabels(labels, color="#aaaaaa", fontsize=7, rotation=30)
+        ax2.tick_params(colors="white")
+        ax2.spines[:].set_visible(False)
+        ax2.yaxis.set_visible(False)
+        ax2.legend(handles=[
+            mpatches.Patch(color="#00c897", label="Win"),
+            mpatches.Patch(color="#e05c5c", label="Loss"),
+        ], facecolor="#1a1a2e", edgecolor="none", labelcolor="white", fontsize=8)
+    ax2.set_title("Last 6 hours", color="#aaaaaa", fontsize=9)
+
+    plt.tight_layout()
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png", dpi=110, bbox_inches="tight", facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
 
 def parse_strategy_log():
     lines = read("strategy_log.md")
@@ -148,7 +269,6 @@ def get_fear_greed():
     try:
         req = urllib.request.Request("https://api.alternative.me/fng/?limit=1")
         with urllib.request.urlopen(req, timeout=5) as r:
-            import json
             data = json.loads(r.read())
         entry = data["data"][0]
         return int(entry["value"]), entry["value_classification"]
@@ -157,7 +277,6 @@ def get_fear_greed():
 
 def get_btc_dominance():
     try:
-        import json
         req = urllib.request.Request(
             "https://api.coingecko.com/api/v3/global",
             headers={"User-Agent": "t-rade/1.0"}
@@ -228,3 +347,11 @@ msg = (
 print(msg)
 send(msg)
 print("Telegram message sent.")
+
+chart = build_wl_chart(hours=1)
+if chart:
+    try:
+        send_photo(chart, caption=f"Win/Loss — {now_str}")
+        print("Chart sent.")
+    except Exception as e:
+        print(f"Chart send failed: {e}")

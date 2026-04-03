@@ -466,7 +466,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         return
 
     asset, percentage, df, total_risk, qty = None, 0, None, 0, 0
-    MIN_NOTIONAL = 10.0
+    MIN_NOTIONAL = max(10.0, usdt_bal * 0.20)  # at least 20% of balance, min $10
     norm_diff, trend_label, price_confidence = 0.0, "widening", 0.0
 
     token_lists = load_token_lists()
@@ -559,8 +559,11 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         # Passed all checks — use this candidate
         asset, percentage, df = candidate, float(pct), df_c
 
-        buy_proportion = 0.5 - total_risk * 0.045
-        buy_amt = max(MIN_NOTIONAL, int(buy_proportion * usdt_bal))
+        # Position sizing: scale from 60% at risk=2 down to 30% at risk=10.
+        # Clamp to valid range so the formula never goes negative.
+        buy_proportion = 0.60 - ((total_risk - 2) / 8) * 0.30
+        buy_proportion = max(0.30, min(0.60, buy_proportion))
+        buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
         qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
         break
 
@@ -606,8 +609,8 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
                 f"⭐ Whitelist: {wl_asset} split={norm_diff:.3f}% risk={total_risk:.1f} conf={price_confidence:.0%}"
             )
             asset, percentage, df = wl_asset, 0.0, df_c
-            buy_proportion = 0.5 - total_risk * 0.045
-            buy_amt = max(MIN_NOTIONAL, int(buy_proportion * usdt_bal))
+            buy_proportion = max(0.30, min(0.60, 0.60 - ((total_risk - 2) / 8) * 0.30))
+            buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
             qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
             break
 
