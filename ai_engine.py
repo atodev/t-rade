@@ -14,7 +14,8 @@ from datetime import datetime
 from queue import Queue
 
 # ── Tuning constants ──────────────────────────────────────────────────────────
-MIN_TRADES_FOR_EVAL = 15       # completed sells before first evaluation
+MIN_TRADES_FOR_EVAL  = 15      # completed sells before first evaluation
+MIN_NEW_TRADES_TO_SWITCH = 5  # must collect this many NEW trades before switching params
 TARGET_MULTIPLIER   = 10.0     # 10× the starting balance in …
 PROJECTION_DAYS     = 7        # … this many days
 EVAL_INTERVAL       = 60       # seconds between evaluation cycles
@@ -62,15 +63,16 @@ class AIStrategyEngine:
     """
 
     def __init__(self, ai_queue: Queue, initial_balance: float = 18.0):
-        self.ai_queue       = ai_queue
+        self.ai_queue        = ai_queue
         self.initial_balance = initial_balance
-        self.running        = False
-        self.eval_cycle     = 0
-        self.param_index    = 0
-        self.strategy_log   = []
-        self.live_enabled   = False
-        self.best_score     = -999.0
-        self.best_params    = None
+        self.running         = False
+        self.eval_cycle      = 0
+        self.param_index     = 0
+        self.strategy_log    = []
+        self.live_enabled    = False
+        self.best_score      = -999.0
+        self.best_params     = None
+        self.trades_at_last_switch = 0   # total sells when we last switched params
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -262,14 +264,24 @@ class AIStrategyEngine:
                         self._post(
                             "Performance fell below target. Reverting to simulation."
                         )
-                    # Advance to next parameter combination
-                    self.param_index = (self.param_index + 1) % len(PARAM_GRID)
-                    new_sl, new_tp, new_fast, new_slow = PARAM_GRID[self.param_index]
-                    set_strategy_params({"SL": new_sl, "Target": new_tp, "ma_fast": new_fast, "ma_slow": new_slow})
-                    self._post(
-                        f"Switching to param set {self.param_index + 1}/{len(PARAM_GRID)}: "
-                        f"SL={new_sl}, Target={new_tp}, MA({new_fast}/{new_slow})"
-                    )
+                    # Only switch params after collecting MIN_NEW_TRADES_TO_SWITCH
+                    # new trades under the current set — prevents thrashing when
+                    # the market is quiet and no new data is coming in.
+                    new_trades_since_switch = result["total_trades"] - self.trades_at_last_switch
+                    if new_trades_since_switch < MIN_NEW_TRADES_TO_SWITCH:
+                        self._post(
+                            f"Waiting for {MIN_NEW_TRADES_TO_SWITCH - new_trades_since_switch} more trades "
+                            f"before switching params ({new_trades_since_switch}/{MIN_NEW_TRADES_TO_SWITCH} collected)."
+                        )
+                    else:
+                        self.param_index = (self.param_index + 1) % len(PARAM_GRID)
+                        new_sl, new_tp, new_fast, new_slow = PARAM_GRID[self.param_index]
+                        set_strategy_params({"SL": new_sl, "Target": new_tp, "ma_fast": new_fast, "ma_slow": new_slow})
+                        self.trades_at_last_switch = result["total_trades"]
+                        self._post(
+                            f"Switching to param set {self.param_index + 1}/{len(PARAM_GRID)}: "
+                            f"SL={new_sl}, Target={new_tp}, MA({new_fast}/{new_slow})"
+                        )
 
             except Exception as e:
                 self._post(f"ERROR in eval cycle {self.eval_cycle}: {e} — continuing.")

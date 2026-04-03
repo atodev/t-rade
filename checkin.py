@@ -276,6 +276,23 @@ def get_fear_greed():
         return None, "unknown"
 
 def get_btc_dominance():
+    # Use CoinMarketCap global-metrics (no key needed for this endpoint)
+    # Fallback to alternative.me if that fails
+    for url in [
+        "https://api.coinmarketcap.com/data-api/v3/global-metrics/quotes/latest",
+        "https://api.alternative.me/v1/ticker/bitcoin/?convert=USD",
+    ]:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "t-rade/1.0"})
+            with urllib.request.urlopen(req, timeout=8) as r:
+                data = json.loads(r.read())
+            # CMC format
+            if "data" in data and "btcDominance" in data.get("data", {}):
+                return round(data["data"]["btcDominance"], 1)
+            # alternative.me format — doesn't have dominance, skip
+        except Exception:
+            continue
+    # Final fallback: CoinGecko (may be stale on free tier)
     try:
         req = urllib.request.Request(
             "https://api.coingecko.com/api/v3/global",
