@@ -74,6 +74,8 @@ BNB_FEE_RATE   = 0.00075   # 0.075% Binance fee with BNB discount
 
 # Token blacklist / whitelist
 TOKEN_LIST_FILE          = "token_lists.json"
+STALL_CHECK_INTERVAL     = 10   # minutes in trade before first stall check
+STALL_RANGE_PCT          = 0.15 # price must stay within this % of benchmark to be "stalling"
 BLACKLIST_LOSSES_TRIGGER = 2    # losses within window to blacklist
 BLACKLIST_WINDOW_HOURS   = 1    # rolling window to count losses
 BLACKLIST_DURATION_HOURS = 3    # how long the blacklist lasts
@@ -181,6 +183,49 @@ def update_token_lists(asset, won):
             f"({r_wins} wins in last {BLACKLIST_WINDOW_HOURS}h)"
         )
     save_token_lists(lists)
+
+def score_candidate(symbol, ma_fast, ma_slow, min_split_pct):
+    """
+    Quick scoring of a candidate for mid-trade reassessment.
+    Returns a float score (higher = better opportunity) or None if disqualified.
+    Score = split_pct * price_confidence / risk  — favours wide, confident, moderate-risk setups.
+    """
+    try:
+        df_c = getminutedata(symbol, "1m", "30", ma_fast, ma_slow)
+        if df_c.empty:
+            return None
+    except Exception:
+        return None
+
+    if not (((df_c.Close.pct_change() + 1).cumprod()).iloc[-1] > 1):
+        return None
+    if not (df_c['SMA_fast'].iloc[-1] > df_c['SMA_slow'].iloc[-1]):
+        return None
+
+    close_now   = df_c['Close'].iloc[-1]
+    split_now   = df_c['SMA_fast'].iloc[-1] - df_c['SMA_slow'].iloc[-1]
+    norm_diff   = (split_now / close_now) * 100 if close_now > 0 else 0
+    if norm_diff < min_split_pct:
+        return None
+
+    split_prev = df_c['SMA_fast'].iloc[-6] - df_c['SMA_slow'].iloc[-6] if len(df_c) >= 6 else split_now
+    if split_now <= split_prev:   # narrowing
+        return None
+
+    closes = df_c['Close'].iloc[-4:].values
+    rising = sum(closes[i] > closes[i-1] for i in range(1, len(closes)))
+    if rising == 0:
+        return None
+    confidence = rising / (len(closes) - 1)
+
+    vol_mean = df_c['Volume'].mean()
+    vol_std  = df_c['Volume'].std()
+    vol_risk = max(0, (df_c['Volume'].iloc[-1] - vol_mean) / vol_std) * 2 if vol_std > 0 else 0
+    risk     = min(10, (abs(norm_diff) * 10 + vol_risk) / 2)
+    if risk < 2 or (6 <= risk < 8):
+        return None
+
+    return (norm_diff * confidence) / max(risk, 0.1)
 
 def get_fear_greed():
     """Fetch current Fear & Greed index (0–100) from alternative.me. Returns (value, label)."""
@@ -670,6 +715,53 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         distance_to_sl = current_price - sl_price
         global poll_sleep
         poll_sleep = max(2, min(30, 2 + (distance_to_sl / sl_band) * 28)) if sl_band > 0 else 10
+
+        # ── Mid-trade reassessment ────────────────────────────────────────────
+        # After STALL_CHECK_INTERVAL minutes, if price is sawing around the entry
+        # without progress, scan for a better opportunity and switch if found.
+        hold_elapsed = time.time() - buy_time
+        price_range_pct = abs(current_price - benchmark) / benchmark * 100
+        is_stalling = (
+            hold_elapsed >= STALL_CHECK_INTERVAL * 60
+            and price_range_pct < STALL_RANGE_PCT
+            and adjm == 0          # no trailing TP hit yet — still at original benchmark
+        )
+        if is_stalling:
+            status_queue.put(
+                f"⏳ {asset} stalling {hold_elapsed/60:.0f}m "
+                f"(price {price_range_pct:.3f}% from entry) — scanning alternatives."
+            )
+            current_score = (norm_diff * price_confidence) / max(total_risk, 0.1)
+            try:
+                alt_candidates = top_symbols()
+            except Exception:
+                alt_candidates = []
+            best_alt, best_alt_score = None, current_score * 1.5  # must be 50% better
+            for alt, _ in alt_candidates:
+                if alt == asset:
+                    continue
+                sc = score_candidate(alt, current_ma_fast, current_ma_slow, MIN_SPLIT_PCT)
+                time.sleep(1)
+                if sc is not None and sc > best_alt_score:
+                    best_alt_score = sc
+                    best_alt = alt
+            if best_alt:
+                # Only exit early if current price covers round-trip fees
+                min_exit_price = benchmark * (1 + 2 * BNB_FEE_RATE)
+                if current_price >= min_exit_price:
+                    status_queue.put(
+                        f"🔀 Switching {asset}→{best_alt} "
+                        f"(score {current_score:.3f}→{best_alt_score:.3f})"
+                    )
+                    # Force exit via SL path by setting SL just above current price
+                    SL = (current_price / buyprice) * 0.9999
+                else:
+                    status_queue.put(
+                        f"⏳ Better alt {best_alt} found but fee not yet covered "
+                        f"(need ${min_exit_price:.6f}, have ${current_price:.6f}) — holding."
+                    )
+        # ─────────────────────────────────────────────────────────────────────
+
         time.sleep(poll_sleep)
 
         if current_price <= buyprice * SL or call_count > 3999:
@@ -1066,7 +1158,7 @@ def create_main_window():
 
     in_trade_frame = ttk.LabelFrame(session_frame, text="In Trade", padding="5")
     in_trade_frame.pack(fill=tk.X, pady=5)
-    current_price_label = tk.Label(in_trade_frame, text="Current Price: --", fg="white", bg="#2E2E2E", font=("Helvetica", 11, "bold"))
+    current_price_label = tk.Label(in_trade_frame, text="Current Price: --", fg="white", bg="#2E2E2E", font=("Helvetica", 10, "bold"))
     current_price_label.pack(anchor="w")
     in_trade_var = tk.StringVar(value="Not in trade")
     ttk.Label(in_trade_frame, textvariable=in_trade_var).pack(anchor="w")
