@@ -445,13 +445,16 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     if fg_value is not None:
         status_queue.put(f"Fear & Greed: {fg_value} ({fg_label})")
 
-    # 2. BTC macro filter: only enter when BTC 30-min trend is bullish.
-    #    Altcoins follow BTC — entering longs during a BTC downtrend is the
-    #    primary driver of losses.
-    if not btc_is_bullish():
-        status_queue.put("BTC bearish (SMA9 < SMA21 on 30m) — skipping scan.")
-        time.sleep(60)
-        return
+    # 2. BTC macro filter: block LIVE entries during a BTC downtrend.
+    #    Sim is always allowed through so the AI keeps collecting data
+    #    and can learn what works (or doesn't) in bear conditions.
+    btc_bull = btc_is_bullish()
+    is_sim_only = force_sim or force_sim_override
+    if not btc_bull and not is_sim_only:
+        status_queue.put("BTC bearish — forcing sim scan so AI can gather bear-market data.")
+        force_sim = True
+    elif not btc_bull:
+        status_queue.put("BTC bearish — sim scan continuing for AI data.")
 
     # Trading window: unrestricted — need 200+ trades per hour before locking a window.
     # ─────────────────────────────────────────────────────────────────────────
