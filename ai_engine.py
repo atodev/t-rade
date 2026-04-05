@@ -86,7 +86,8 @@ class AIStrategyEngine:
 
     def _load_recent_trades(self, n: int = 100) -> pd.DataFrame:
         try:
-            df = pd.read_csv("trades.csv", header=None, names=TRADE_CSV_COLS)
+            df = pd.read_csv("trades.csv", header=None, names=TRADE_CSV_COLS,
+                             dtype={"hour": str}, low_memory=False)
             return df.tail(n * 2)
         except Exception:
             return pd.DataFrame(columns=TRADE_CSV_COLS)
