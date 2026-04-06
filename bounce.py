@@ -134,6 +134,7 @@ bounce_requested = False
 status_requested = False
 start_requested  = False
 stop_requested   = False
+menu_requested   = False
 new_offset = offset
 
 for update in updates:
@@ -154,6 +155,8 @@ for update in updates:
         start_requested = True
     elif text.startswith("/stop"):
         stop_requested = True
+    elif text.startswith("/menu"):
+        menu_requested = True
 
 save_offset(new_offset)
 
@@ -171,6 +174,16 @@ if bounce_requested:
             f"⚠️ Restart failed — process died immediately.\n"
             f"Last log:\n{crash}"
         )
+
+if menu_requested:
+    send(
+        "📟 t-rade commands:\n\n"
+        "/status  — last 25 lines of the live log\n"
+        "/start   — start the trading session\n"
+        "/stop    — stop the trading session\n"
+        "/bounce  — kill and restart the process\n"
+        "/menu    — show this list"
+    )
 
 if status_requested:
     log = tail_log(STATUS_LINES)
