@@ -74,6 +74,11 @@ BNB_FEE_RATE   = 0.00075   # 0.075% Binance fee with BNB discount
 
 # Token blacklist / whitelist
 TOKEN_LIST_FILE          = "token_lists.json"
+# Blue-chip tokens always considered as fallback candidates — never expire, never blacklisted
+BLUECHIP_WHITELIST = [
+    "XRPUSDT", "BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT",
+    "ADAUSDT", "DOGEUSDT", "TRXUSDT", "AVAXUSDT", "DOTUSDT",
+]
 STALL_CHECK_INTERVAL     = 10   # minutes in trade before first stall check
 STALL_RANGE_PCT          = 0.15 # price must stay within this % of benchmark to be "stalling"
 BLACKLIST_LOSSES_TRIGGER = 2    # losses within window to blacklist
@@ -166,7 +171,7 @@ def update_token_lists(asset, won):
     except Exception as e:
         status_queue.put(f"token_lists read error: {e}")
 
-    if r_losses >= BLACKLIST_LOSSES_TRIGGER:
+    if r_losses >= BLACKLIST_LOSSES_TRIGGER and asset not in BLUECHIP_WHITELIST:
         expiry = (now + timedelta(hours=BLACKLIST_DURATION_HOURS)).isoformat()
         lists["blacklist"][asset] = expiry
         lists["whitelist"].pop(asset, None)
@@ -612,6 +617,53 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
                 f"⭐ Whitelist: {wl_asset} split={norm_diff:.3f}% risk={total_risk:.1f} conf={price_confidence:.0%}"
             )
             asset, percentage, df = wl_asset, 0.0, df_c
+            buy_proportion = max(0.30, min(0.60, 0.60 - ((total_risk - 2) / 8) * 0.30))
+            buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
+            qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
+            break
+
+    if asset is None:
+        # Blue-chip fallback — always scan top-10 market-cap tokens regardless of dynamic lists
+        eligible_bc = [s for s in BLUECHIP_WHITELIST if s not in blacklist]
+        if eligible_bc:
+            status_queue.put(f"No candidate found — scanning {len(eligible_bc)} blue-chip token(s).")
+        for bc_asset in eligible_bc:
+            try:
+                df_c = getminutedata(bc_asset, "1m", "30", current_ma_fast, current_ma_slow)
+                if df_c.empty:
+                    continue
+            except Exception:
+                continue
+            time.sleep(1)
+            momentum_condition = ((df_c.Close.pct_change() + 1).cumprod()).iloc[-1] > 1
+            ma_condition = df_c['SMA_fast'].iloc[-1] > df_c['SMA_slow'].iloc[-1]
+            if not momentum_condition or not ma_condition:
+                continue
+            close_now = df_c['Close'].iloc[-1]
+            split_now = df_c['SMA_fast'].iloc[-1] - df_c['SMA_slow'].iloc[-1]
+            norm_diff = (split_now / close_now) * 100 if close_now > 0 else 0
+            if norm_diff < MIN_SPLIT_PCT:
+                continue
+            split_prev     = df_c['SMA_fast'].iloc[-6] - df_c['SMA_slow'].iloc[-6] if len(df_c) >= 6 else split_now
+            trend_widening = split_now > split_prev
+            if not trend_widening:
+                continue
+            bc_closes        = df_c['Close'].iloc[-4:].values
+            rising_steps     = sum(bc_closes[i] > bc_closes[i-1] for i in range(1, len(bc_closes)))
+            price_confidence = rising_steps / (len(bc_closes) - 1)
+            if rising_steps == 0:
+                continue
+            ma_diff_risk = abs(norm_diff) * 10
+            vol_mean = df_c['Volume'].mean()
+            vol_std  = df_c['Volume'].std()
+            bc_vol_risk = max(0, (df_c['Volume'].iloc[-1] - vol_mean) / vol_std) * 2 if vol_std > 0 else 0
+            total_risk = min(10, (ma_diff_risk + bc_vol_risk) / 2)
+            if total_risk < 2 or (6 <= total_risk < 8):
+                continue
+            status_queue.put(
+                f"💎 Blue-chip: {bc_asset} split={norm_diff:.3f}% risk={total_risk:.1f} conf={price_confidence:.0%}"
+            )
+            asset, percentage, df = bc_asset, 0.0, df_c
             buy_proportion = max(0.30, min(0.60, 0.60 - ((total_risk - 2) / 8) * 0.30))
             buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
             qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
