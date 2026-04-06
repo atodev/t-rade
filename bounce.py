@@ -28,10 +28,12 @@ TELEGRAM_CHAT  = os.getenv("TELEGRAM_CHAT_ID")
 
 OFFSET_FILE  = ".telegram_offset"
 DEAD_FLAG    = ".process_dead_alerted"
+CMD_FILE     = ".t-rade-cmd"
 HERE         = os.path.dirname(os.path.abspath(__file__))
 APP_SCRIPT   = os.path.join(HERE, "main.py")
 VENV_PYTHON  = os.path.join(HERE, ".venv", "bin", "python")
 LOG_FILE     = "/tmp/t-rade.out"
+STATUS_LINES = 25
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -129,6 +131,9 @@ offset  = load_offset()
 updates = fetch_updates(offset)
 
 bounce_requested = False
+status_requested = False
+start_requested  = False
+stop_requested   = False
 new_offset = offset
 
 for update in updates:
@@ -136,11 +141,19 @@ for update in updates:
     new_offset = max(new_offset, uid + 1)
 
     msg     = update.get("message", {})
-    text    = msg.get("text", "").strip()
+    text    = msg.get("text", "").strip().lower()
     chat_id = str(msg.get("chat", {}).get("id", ""))
 
-    if text.lower().startswith("/bounce") and chat_id == TELEGRAM_CHAT:
+    if chat_id != TELEGRAM_CHAT:
+        continue
+    if text.startswith("/bounce"):
         bounce_requested = True
+    elif text.startswith("/status"):
+        status_requested = True
+    elif text.startswith("/start"):
+        start_requested = True
+    elif text.startswith("/stop"):
+        stop_requested = True
 
 save_offset(new_offset)
 
@@ -158,6 +171,26 @@ if bounce_requested:
             f"⚠️ Restart failed — process died immediately.\n"
             f"Last log:\n{crash}"
         )
+
+if status_requested:
+    log = tail_log(STATUS_LINES)
+    send(f"📋 t-rade log (last {STATUS_LINES} lines):\n\n{log}")
+
+if start_requested:
+    if is_running():
+        with open(os.path.join(HERE, CMD_FILE), "w") as f:
+            f.write("start")
+        send("▶️ /start sent to t-rade.")
+    else:
+        send("⚠️ t-rade is not running. Send /bounce first.")
+
+if stop_requested:
+    if is_running():
+        with open(os.path.join(HERE, CMD_FILE), "w") as f:
+            f.write("stop")
+        send("⏹️ /stop sent to t-rade.")
+    else:
+        send("⚠️ t-rade is not running.")
 
 elif not is_running():
     if not os.path.exists(DEAD_FLAG):
