@@ -98,73 +98,29 @@ def tail_log(n=8):
         return "(log unavailable)"
 
 
-def find_display():
-    """Return a usable DISPLAY value, or None if none found."""
-    # Check env first (works when called from an X session)
-    if os.environ.get("DISPLAY"):
-        return os.environ["DISPLAY"]
-    # Try common VNC / X displays on Pi
-    for d in (":0", ":1", ":10"):
-        result = subprocess.run(
-            ["xdpyinfo", "-display", d],
-            capture_output=True, text=True
-        )
-        if result.returncode == 0:
-            return d
-    return None
+def restart_app():
+    """Kill any existing main.py and relaunch in headless mode."""
+    print(f"[{_ts()}] Killing existing main.py...")
+    subprocess.run(["pkill", "-f", "python.*main.py"], capture_output=True)
+    time.sleep(3)
 
-
-def launch(extra_args):
     env = os.environ.copy()
-    display = find_display()
-    if display:
-        env["DISPLAY"] = display
     log_out = open(LOG_FILE, "a")
-    proc = subprocess.Popen(
-        [VENV_PYTHON, APP_SCRIPT] + extra_args,
+    subprocess.Popen(
+        [VENV_PYTHON, APP_SCRIPT, "--headless", "--autostart"],
         cwd=HERE,
         env=env,
         stdout=log_out,
         stderr=subprocess.STDOUT,
         start_new_session=True,
     )
-    return proc
-
-
-def restart_app():
-    """
-    Kill any existing main.py, then try:
-      1. GUI mode (--autostart) — wait 15s and confirm it's still running.
-      2. If GUI dies, fall back to --headless --autostart.
-    Returns a string describing what was launched.
-    """
-    print(f"[{_ts()}] Killing existing main.py...")
-    subprocess.run(["pkill", "-f", "python.*main.py"], capture_output=True)
-    time.sleep(3)
-
-    display = find_display()
-    if display:
-        print(f"[{_ts()}] Display found: {display}. Trying GUI mode...")
-        launch(["--autostart"])
-        time.sleep(15)   # give Tkinter time to fully initialise (or crash)
-        if is_running():
-            print(f"[{_ts()}] GUI mode running OK.")
-            return "GUI mode (--autostart)"
-        # GUI failed — log the crash output
-        crash = tail_log()
-        print(f"[{_ts()}] GUI launch failed. Last log:\n{crash}")
-        print(f"[{_ts()}] Falling back to headless mode...")
-    else:
-        print(f"[{_ts()}] No display found. Starting in headless mode directly.")
-
-    # Headless fallback
-    time.sleep(2)
-    launch(["--headless", "--autostart"])
-    time.sleep(10)
+    print(f"[{_ts()}] main.py launched in headless mode.")
+    time.sleep(8)
     if is_running():
-        print(f"[{_ts()}] Headless mode running OK.")
-        return "headless mode (--autostart)"
-    return None   # both attempts failed
+        return "headless mode"
+    crash = tail_log()
+    print(f"[{_ts()}] Launch failed. Last log:\n{crash}")
+    return None
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
