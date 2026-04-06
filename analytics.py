@@ -35,7 +35,7 @@ DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
 
 def _load() -> pd.DataFrame:
     try:
-        df = pd.read_csv(CSV_PATH, header=None, names=COLS)
+        df = pd.read_csv(CSV_PATH, header=None, names=COLS, dtype={"hour": str}, low_memory=False)
     except FileNotFoundError:
         return pd.DataFrame(columns=COLS)
 
