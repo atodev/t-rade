@@ -969,14 +969,24 @@ def trading_loop(args):
         if not session_active:
             time.sleep(1)
             continue
-        usdt_bal = get_usdt()
+        try:
+            usdt_bal = get_usdt()
+        except Exception as _ge:
+            status_queue.put(f"get_usdt error: {_ge} — retrying in 30s")
+            time.sleep(30)
+            continue
         force_sim = usdt_bal < 5 or force_sim_override
         if usdt_bal < 5:
             status_queue.put("Insufficient balance — running in simulation mode.")
         elif force_sim_override:
             status_queue.put("AI override — simulation mode active.")
 
-        strategy(percent_var=percent_var, risk_var=risk_var, in_trade_var=in_trade_var, force_sim=force_sim)
+        try:
+            strategy(percent_var=percent_var, risk_var=risk_var, in_trade_var=in_trade_var, force_sim=force_sim)
+        except Exception as _e:
+            status_queue.put(f"Error during trade loop: {_e}")
+            send_telegram(f"⚠️ t-rade trading loop error (will retry):\n{_e}")
+            time.sleep(30)
         time.sleep(5)
 
 def apply_theme(root, style, dark_mode):
@@ -1424,7 +1434,8 @@ def _run_headless():
 
 
 if __name__ == "__main__":
-    headless = "--headless" in sys.argv
+    headless   = "--headless"   in sys.argv
+    autostart  = "--autostart"  in sys.argv
 
     try:
         client = Client(API_KEY, SECRET_KEY)
@@ -1483,6 +1494,8 @@ if __name__ == "__main__":
 
         root.after(100, lambda: check_status_queue(root, status_text, profit_icon_label))
         root.after(500, lambda: drain_ai_queue(root))
+        if autostart:
+            root.after(2000, start_session)
 
         ani = FuncAnimation(fig, animate_graph, fargs=(ax, canvas, animation_args), interval=2000, cache_frame_data=False)
 

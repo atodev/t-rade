@@ -141,9 +141,6 @@ def parse_strategy_log():
             result["cycle"] = m.group(1)
         if "Switching to param set" in line:
             switches += 1
-        m = re.search(r"New best params.*?SL=([\d.]+).*?Target=([\d.]+).*?MA\((\d+)/(\d+)\)", line)
-        if m:
-            result["best_params"] = f"SL={m.group(1)} TP={m.group(2)} MA({m.group(3)}/{m.group(4)})"
     result["param_switches"] = switches
     return result
 
@@ -377,6 +374,11 @@ ai_lines = read_file("milestone_log.md")
 ai_errors = sum(1 for l in ai_lines if "ERROR" in l)
 ai_milestones = sum(1 for l in ai_lines if "MILESTONE" in l)
 ai_live_enabled = any("Live trading enabled" in l for l in ai_lines)
+# Extract best params from milestone log (where they're actually written)
+for line in ai_lines:
+    m = re.search(r"New best params.*?SL=([\d.]+).*?Target=([\d.]+).*?MA\((\d+)/(\d+)\)", line)
+    if m:
+        sl["best_params"] = f"SL={m.group(1)} TP={m.group(2)} MA({m.group(3)}/{m.group(4)})"
 
 # ── Warnings ──────────────────────────────────────────────────────────────────
 warnings = []

@@ -318,12 +318,34 @@ def parse_milestone():
                 pass
     return 9999
 
+def last_trade_age_mins():
+    """Return minutes since the most recent sell row in trades.csv."""
+    last_ts = None
+    try:
+        with open("trades.csv") as fh:
+            for line in fh:
+                parts = line.strip().split(",")
+                if len(parts) < 5 or parts[4] != "sell":
+                    continue
+                try:
+                    ts = datetime.strptime(parts[0][:19], "%Y-%m-%d %H:%M:%S")
+                    if last_ts is None or ts > last_ts:
+                        last_ts = ts
+                except Exception:
+                    continue
+    except FileNotFoundError:
+        pass
+    if last_ts is None:
+        return 9999
+    return int((datetime.now() - last_ts).total_seconds() // 60)
+
 # ── Build summary ─────────────────────────────────────────────────────────────
 
 sl   = parse_strategy_log()
 an   = parse_analytics()
 w, l, consec = parse_trades()
 milestone_age = parse_milestone()
+trade_age = last_trade_age_mins()
 fg_value, fg_label = get_fear_greed()
 btc_dom = get_btc_dominance()
 
@@ -335,6 +357,8 @@ if consec >= 3:
     warnings.append(f"{consec} consecutive losses")
 if milestone_age > 120:
     warnings.append(f"AI engine stalled ({milestone_age}m since last milestone)")
+if trade_age > 120:
+    warnings.append(f"No trades in {trade_age}m — t-rade may be stalled! Send /bounce to restart")
 proj_num = float(re.sub(r"[^\d.-]", "", sl["proj"])) if sl["proj"] != "?" else 0
 if proj_num > 0 and proj_num < TARGET_EQUITY * 0.5:
     warnings.append(f"Projected equity ${proj_num:.2f} far below ${TARGET_EQUITY} target")
