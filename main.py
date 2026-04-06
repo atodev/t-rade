@@ -961,11 +961,34 @@ def stop_session():
         current_qty = 0
     status_queue.put("Session ended")
 
+CMD_FILE = ".t-rade-cmd"
+
+def check_command_file():
+    """Poll for commands written by bounce.py (/start, /stop)."""
+    if not os.path.exists(CMD_FILE):
+        return
+    try:
+        with open(CMD_FILE) as f:
+            cmd = f.read().strip().lower()
+        os.remove(CMD_FILE)
+        if cmd == "start":
+            start_session()
+            status_queue.put("Remote /start received — session started.")
+            send_telegram("▶️ t-rade session started via /start")
+        elif cmd == "stop":
+            stop_session()
+            status_queue.put("Remote /stop received — session stopped.")
+            send_telegram("⏹️ t-rade session stopped via /stop")
+    except Exception as e:
+        status_queue.put(f"Command file error: {e}")
+
+
 def trading_loop(args):
     (asset_var, percent_var, count_var, status_text, roi_var, risk_var, adj_var, ma_diff_var, ma_diff_label,
      ratio_var, pnl_var, equity_var, profit_icon_label, in_trade_var) = args
     global usdt_bal
     while True:
+        check_command_file()
         if not session_active:
             time.sleep(1)
             continue
