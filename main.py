@@ -1434,7 +1434,8 @@ def _run_headless():
 
 
 if __name__ == "__main__":
-    headless = "--headless" in sys.argv
+    headless   = "--headless"   in sys.argv
+    autostart  = "--autostart"  in sys.argv
 
     try:
         client = Client(API_KEY, SECRET_KEY)
@@ -1493,6 +1494,8 @@ if __name__ == "__main__":
 
         root.after(100, lambda: check_status_queue(root, status_text, profit_icon_label))
         root.after(500, lambda: drain_ai_queue(root))
+        if autostart:
+            root.after(2000, start_session)
 
         ani = FuncAnimation(fig, animate_graph, fargs=(ax, canvas, animation_args), interval=2000, cache_frame_data=False)
 

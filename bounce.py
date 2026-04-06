@@ -99,7 +99,7 @@ def restart_app():
 
     log_out = open("/tmp/t-rade.out", "a")
     subprocess.Popen(
-        [VENV_PYTHON, APP_SCRIPT],
+        [VENV_PYTHON, APP_SCRIPT, "--autostart"],
         cwd=HERE,
         env=env,
         stdout=log_out,
