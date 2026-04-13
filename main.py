@@ -219,7 +219,7 @@ def score_candidate(symbol, ma_fast, ma_slow, min_split_pct):
 
     closes = df_c['Close'].iloc[-4:].values
     rising = sum(closes[i] > closes[i-1] for i in range(1, len(closes)))
-    if rising == 0:
+    if rising < 2:
         return None
     confidence = rising / (len(closes) - 1)
 
@@ -555,14 +555,14 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
 
         # ── Price trajectory confidence ──────────────────────────────────────
         # Count how many of the last 3 candles closed higher than the previous.
-        # 0/2 = falling, 1/2 = mixed, 2/2 = rising. Block on 0/2 (both falling).
+        # Require majority rising (≥2/3) — blocks downward trajectory entries.
         closes = df_c['Close'].iloc[-4:].values   # 4 closes → 3 consecutive pairs
         rising_steps = sum(closes[i] > closes[i-1] for i in range(1, len(closes)))
         price_confidence = rising_steps / (len(closes) - 1)   # 0.0 – 1.0
 
-        if rising_steps == 0:
+        if rising_steps < 2:
             status_queue.put(
-                f"{candidate} skipped — price falling all 3 candles (conf=0%)."
+                f"{candidate} skipped — price falling {3 - rising_steps}/3 recent candles (conf={price_confidence:.0%})."
             )
             continue
         # ─────────────────────────────────────────────────────────────────────
@@ -615,7 +615,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             wl_closes       = df_c['Close'].iloc[-4:].values
             rising_steps    = sum(wl_closes[i] > wl_closes[i-1] for i in range(1, len(wl_closes)))
             price_confidence = rising_steps / (len(wl_closes) - 1)
-            if rising_steps == 0:
+            if rising_steps < 2:
                 continue
             ma_diff_risk = abs(norm_diff) * 10
             vol_mean = df_c['Volume'].mean()
@@ -667,7 +667,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             bc_closes        = df_c['Close'].iloc[-4:].values
             rising_steps     = sum(bc_closes[i] > bc_closes[i-1] for i in range(1, len(bc_closes)))
             price_confidence = rising_steps / (len(bc_closes) - 1)
-            if rising_steps == 0:
+            if rising_steps < 2:
                 continue
             ma_diff_risk = abs(norm_diff) * 10
             vol_mean = df_c['Volume'].mean()
