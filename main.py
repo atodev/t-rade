@@ -583,6 +583,9 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         buy_proportion = max(0.30, min(0.60, buy_proportion))
         buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
         qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
+        if qty == 0:
+            status_queue.put(f"{candidate} skipped — price ${df.Close.iloc[-1]:.4f} too high for ${buy_amt:.2f} budget.")
+            continue
         break
 
     if asset is None and whitelist:
@@ -626,10 +629,13 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             status_queue.put(
                 f"⭐ Whitelist: {wl_asset} split={norm_diff:.3f}% risk={total_risk:.1f} conf={price_confidence:.0%}"
             )
-            asset, percentage, df = wl_asset, 0.0, df_c
             buy_proportion = max(0.30, min(0.60, 0.60 - ((total_risk - 2) / 8) * 0.30))
             buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
-            qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
+            qty = round(buy_amt / df_c.Close.iloc[-1]) if df_c.Close.iloc[-1] > 0 else 0
+            if qty == 0:
+                status_queue.put(f"⭐ {wl_asset} skipped — price ${df_c.Close.iloc[-1]:.4f} too high for ${buy_amt:.2f} budget.")
+                continue
+            asset, percentage, df = wl_asset, 0.0, df_c
             break
 
     if asset is None:
@@ -673,10 +679,13 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             status_queue.put(
                 f"💎 Blue-chip: {bc_asset} split={norm_diff:.3f}% risk={total_risk:.1f} conf={price_confidence:.0%}"
             )
-            asset, percentage, df = bc_asset, 0.0, df_c
             buy_proportion = max(0.30, min(0.60, 0.60 - ((total_risk - 2) / 8) * 0.30))
             buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
-            qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
+            qty = round(buy_amt / df_c.Close.iloc[-1]) if df_c.Close.iloc[-1] > 0 else 0
+            if qty == 0:
+                status_queue.put(f"💎 {bc_asset} skipped — price ${df_c.Close.iloc[-1]:.4f} too high for ${buy_amt:.2f} budget.")
+                continue
+            asset, percentage, df = bc_asset, 0.0, df_c
             break
 
     if asset is None:
@@ -1036,11 +1045,11 @@ def check_command_file():
         if cmd == "start":
             start_session()
             status_queue.put("Remote /start received — session started.")
-            send_telegram("▶️ t-rade session started via /start")
+            telegram_notify("▶️ t-rade session started via /start")
         elif cmd == "stop":
             stop_session()
             status_queue.put("Remote /stop received — session stopped.")
-            send_telegram("⏹️ t-rade session stopped via /stop")
+            telegram_notify("⏹️ t-rade session stopped via /stop")
     except Exception as e:
         status_queue.put(f"Command file error: {e}")
 
@@ -1070,7 +1079,7 @@ def trading_loop(args):
             strategy(percent_var=percent_var, risk_var=risk_var, in_trade_var=in_trade_var, force_sim=force_sim)
         except Exception as _e:
             status_queue.put(f"Error during trade loop: {_e}")
-            send_telegram(f"⚠️ t-rade trading loop error (will retry):\n{_e}")
+            telegram_notify(f"⚠️ t-rade trading loop error (will retry):\n{_e}")
             time.sleep(30)
         time.sleep(5)
 
