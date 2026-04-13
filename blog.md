@@ -118,6 +118,7 @@ The bot runs headless on a Raspberry Pi. Monitoring happens through:
 - Win rate below 40%
 - 3 or more consecutive losses
 - AI engine stalled (no milestone written in 2+ hours)
+- No trades logged in 2+ hours (process may be hung)
 - Projected 7-day equity below 50% of the $180.76 target
 
 **GitHub** is used as a log relay — the Pi pushes `strategy_log.md`, `analytics_report.md`, `milestone_log.md`, and `trades.csv` hourly so logs are accessible without SSH.
@@ -145,6 +146,9 @@ The bot runs headless on a Raspberry Pi. Monitoring happens through:
 | `BLACKLIST_DURATION_HOURS` | 3 | How long a blacklist lasts |
 | `WHITELIST_WINS_TRIGGER` | 2 | Wins within window to whitelist a token |
 | `WHITELIST_DURATION_HOURS` | 2 | How long a whitelist lasts |
+| `BLUECHIP_WHITELIST` | 10 tokens | Permanent fallback list — BTC/ETH/XRP/BNB/SOL/ADA/DOGE/TRX/AVAX/DOT |
+| `STALL_CHECK_INTERVAL` | 10m | Minutes in trade before stall reassessment |
+| `STALL_RANGE_PCT` | 0.15% | Price range threshold to consider a trade stalling |
 
 ---
 
@@ -187,6 +191,51 @@ TOKENS:
 ```
 
 This gives a quick read on which assets are currently working and which to watch for blacklisting.
+
+---
+
+## Remote Control via Telegram
+
+The bot is fully controllable from Telegram without needing SSH. A companion script (`bounce.py`) runs every minute via cron, polls for commands, and acts as a process watchdog.
+
+### Commands
+
+| Command | What it does |
+|---|---|
+| `/status` | Sends the last 25 lines of the live log (`/tmp/t-rade.out`) |
+| `/start` | Starts the trading session |
+| `/stop` | Stops the trading session |
+| `/bounce` | Kills the process and restarts it in headless mode with auto-start |
+| `/menu` | Lists all available commands |
+
+`/start` and `/stop` work by writing a command to a `.t-rade-cmd` file. The trading loop polls this file at the top of every iteration and calls `start_session()` or `stop_session()` accordingly, then deletes the file.
+
+### Process Watchdog
+
+`bounce.py` checks whether `main.py` is running on every cron tick. If the process has died:
+- A one-time alert is sent: *"t-rade has stalled — send /bounce to restart it"*
+- The alert is not repeated until the process recovers (flag file prevents spam)
+- `/bounce` kills any zombie process, relaunches in headless mode, confirms it's alive after 8 seconds, and sends a crash log to Telegram if the relaunch fails
+
+The hourly check-in report also raises a warning if no trades have been logged in the last 2 hours — a separate signal that the process may have stalled without dying.
+
+### Auto-start on Bounce
+
+When relaunched via `/bounce`, main.py is started with `--autostart` which calls `start_session()` automatically 2 seconds after the GUI/headless loop initialises — no manual button press required.
+
+---
+
+## Blue-Chip Permanent Whitelist
+
+Alongside the dynamic reputation-based whitelist, the bot maintains a **permanent blue-chip list** of the top 10 cryptocurrencies by market cap:
+
+> BTC, ETH, XRP, BNB, SOL, ADA, DOGE, TRX, AVAX, DOT
+
+These are scanned as a third-tier fallback — after the top-volume scan and the dynamic whitelist both produce no valid candidates. They apply the full set of entry filters (MA crossover, momentum, split magnitude, trend acceleration, trajectory confidence, risk band), so they only trade when conditions are genuinely favourable.
+
+Blue-chips **cannot be blacklisted**. Even if XRP has two recent losses, it remains eligible for the blue-chip fallback scan. The logic: these assets have the deepest liquidity and are most likely to recover quickly — a temporary losing streak is less meaningful than it would be for a micro-cap token.
+
+The status log marks blue-chip entries with a 💎 icon for easy identification.
 
 ---
 

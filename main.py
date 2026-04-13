@@ -450,7 +450,17 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     if fg_value is not None:
         status_queue.put(f"Fear & Greed: {fg_value} ({fg_label})")
 
-    # 2. BTC macro filter: block LIVE entries during a BTC downtrend.
+    # 2. Fear & Greed gate: block LIVE entries during Extreme Fear (< 25).
+    #    Debrief data showed clear negative avg P&L in Extreme Fear conditions.
+    #    Sim is allowed through so the AI keeps learning in all conditions.
+    MIN_FG = 25
+    if fg_value is not None and fg_value < MIN_FG and not (force_sim or force_sim_override):
+        status_queue.put(
+            f"F&G {fg_value} ({fg_label}) below {MIN_FG} — forcing sim to protect capital."
+        )
+        force_sim = True
+
+    # 3. BTC macro filter: block LIVE entries during a BTC downtrend.
     #    Sim is always allowed through so the AI keeps collecting data
     #    and can learn what works (or doesn't) in bear conditions.
     btc_bull = btc_is_bullish()
@@ -888,8 +898,8 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
                           ma_fast=current_ma_fast, ma_slow=current_ma_slow, hold_seconds=hold_secs,
                           fee=sell_fee, fee_asset=sell_fee_asset, fear_greed=fg_value)
             df_log = pd.concat([df_log, new_row])
-            df_log.to_csv("trades.csv", mode="a", index=False, header=False)
-            df_log.to_sql("log", engine3, if_exists="append", index=False)
+            new_row.to_csv("trades.csv", mode="a", index=False, header=False)
+            new_row.to_sql("log", engine3, if_exists="append", index=False)
 
             try:
                 analytics.generate_report()
@@ -958,8 +968,8 @@ def manual_sell():
     new_row = log(dt, asset, "sell", True, sellprice, current_qty, current_buyprice * current_qty, pc, lc, consec_pc, consec_lc, "p" if pnl > 0 else "l", bal, 0, 0,
                   pnl=pnl)
     df_log = pd.concat([df_log, new_row])
-    df_log.to_csv("trades.csv", mode="a", index=False, header=False)
-    df_log.to_sql("log", engine3, if_exists="append", index=False)
+    new_row.to_csv("trades.csv", mode="a", index=False, header=False)
+    new_row.to_sql("log", engine3, if_exists="append", index=False)
     try:
         analytics.generate_report()
     except Exception:
@@ -1001,8 +1011,8 @@ def stop_session():
                 dt = df.index[-1]
                 new_row = log(dt, asset, "sell", True, sellprice, current_qty, current_buyprice * current_qty, pc, lc, consec_pc, consec_lc, "p" if pnl > 0 else "l", initial_balance + total_pnl, 0, 0)
                 df_log = pd.concat([df_log, new_row])
-                df_log.to_csv("trades.csv", mode="a", index=False, header=False)
-                df_log.to_sql("log", engine3, if_exists="append", index=False)
+                new_row.to_csv("trades.csv", mode="a", index=False, header=False)
+                new_row.to_sql("log", engine3, if_exists="append", index=False)
                 try:
                     analytics.generate_report()
                 except Exception:

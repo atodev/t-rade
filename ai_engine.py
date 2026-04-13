@@ -88,6 +88,9 @@ class AIStrategyEngine:
         try:
             df = pd.read_csv("trades.csv", header=None, names=TRADE_CSV_COLS,
                              dtype={"hour": str}, low_memory=False)
+            # Drop duplicate rows that arise from legacy append-all behaviour.
+            # Key: timestamp + asset + action uniquely identifies each trade event.
+            df = df.drop_duplicates(subset=["datetime", "asset", "action"])
             return df.tail(n * 2)
         except Exception:
             return pd.DataFrame(columns=TRADE_CSV_COLS)
