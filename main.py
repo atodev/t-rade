@@ -1423,7 +1423,11 @@ def animate_graph(i, ax, canvas, args):
     ax.axhline(y=benchmark, color="#d6d628", linestyle="dashed", label="Benchmark")
     ax.axhspan(sl, target, facecolor="#2ca02c", alpha=0.2)
     ax.plot(price_df.index, price_df['Close'], label="Price")
-    
+    if 'SMA_fast' in price_df.columns:
+        ax.plot(price_df.index, price_df['SMA_fast'], label="SMA 9", color="#17becf", linewidth=1, alpha=0.8)
+    if 'SMA_slow' in price_df.columns:
+        ax.plot(price_df.index, price_df['SMA_slow'], label="SMA 21", color="#ff7f0e", linewidth=1, alpha=0.8)
+
     ax.set_xlabel("Time")
     ax.set_ylabel("Price")
     ax.set_title(asset, color='#D3D3D3')
