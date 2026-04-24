@@ -28,10 +28,10 @@ load_dotenv()
 TELEGRAM_TOKEN  = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT   = os.getenv("TELEGRAM_CHAT_ID")
 
-START_EQUITY    = 18.0
-TARGET_EQUITY   = 180.76
-START_DATE      = datetime(2026, 3, 31)   # day bot first ran
-TOTAL_DAYS      = 7
+START_EQUITY    = 19.19
+TARGET_EQUITY   = 191.90
+START_DATE      = datetime(2026, 4, 25)   # mission 2 start
+TOTAL_DAYS      = 10
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 

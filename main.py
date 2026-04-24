@@ -4,6 +4,7 @@ import threading
 import time
 import pandas as pd
 from sqlalchemy import create_engine
+#from tradingview_ta import TA_Handler, Interval
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.animation import FuncAnimation
@@ -69,7 +70,7 @@ status_queue = Queue()
 ai_log_queue   = Queue()
 ai_log_buffer  = []       # persists messages so popup can show history
 current_sl     = 0.990
-current_target = 1.010
+current_target = 1.016
 BNB_FEE_RATE   = 0.00075   # 0.075% Binance fee with BNB discount
 
 # Token blacklist / whitelist
