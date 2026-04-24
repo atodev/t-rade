@@ -17,7 +17,7 @@ from queue import Queue
 MIN_TRADES_FOR_EVAL  = 15      # completed sells before first evaluation
 MIN_NEW_TRADES_TO_SWITCH = 5  # must collect this many NEW trades before switching params
 TARGET_MULTIPLIER   = 10.0     # 10× the starting balance in …
-PROJECTION_DAYS     = 7        # … this many days
+PROJECTION_DAYS     = 10       # … this many days
 EVAL_INTERVAL       = 60       # seconds between evaluation cycles
 TRADES_PER_DAY_EST  = 24 * 60 / 15   # ~96 trade cycles per day (15 min avg)
 
@@ -27,16 +27,16 @@ TRADES_PER_DAY_EST  = 24 * 60 / 15   # ~96 trade cycles per day (15 min avg)
 # so wider targets implicitly allow looser splits.
 PARAM_GRID = [
     # SL     Target  fast slow  notes
-    (0.990, 1.010,   9,  21),  # 1  baseline — standard 9/21
-    (0.988, 1.012,   9,  21),  # 2  wider SL/TP, same MAs
-    (0.992, 1.008,   9,  21),  # 3  tight SL/TP, same MAs
-    (0.990, 1.010,   5,  13),  # 4  fast MAs — more reactive, same SL/TP
-    (0.988, 1.012,   5,  13),  # 5  fast MAs, wider SL/TP
-    (0.990, 1.010,   7,  21),  # 6  medium fast / standard slow
-    (0.988, 1.015,   7,  21),  # 7  medium fast, wider TP
-    (0.990, 1.010,  12,  26),  # 8  MACD-style (slower, stronger signals)
-    (0.985, 1.015,  12,  26),  # 9  MACD-style, aggressive SL/TP
-    (0.990, 1.012,   9,  21),  # 10 asymmetric TP, baseline MAs
+    (0.990, 1.016,   9,  21),  # 1  baseline — 2:1 R:R, standard 9/21
+    (0.988, 1.018,   9,  21),  # 2  wider SL/TP, same MAs
+    (0.992, 1.014,   9,  21),  # 3  tight SL, 2:1 R:R
+    (0.990, 1.016,   5,  13),  # 4  fast MAs — more reactive
+    (0.988, 1.020,   5,  13),  # 5  fast MAs, wider TP
+    (0.990, 1.016,   7,  21),  # 6  medium fast / standard slow
+    (0.988, 1.020,   7,  21),  # 7  medium fast, wider TP
+    (0.990, 1.016,  12,  26),  # 8  MACD-style (slower, stronger signals)
+    (0.985, 1.020,  12,  26),  # 9  MACD-style, aggressive SL/TP
+    (0.990, 1.018,   9,  21),  # 10 asymmetric wider TP, baseline MAs
 ]
 
 TRADE_CSV_COLS = [
