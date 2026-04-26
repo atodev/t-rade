@@ -71,8 +71,9 @@ ai_log_queue   = Queue()
 ai_log_buffer  = []       # persists messages so popup can show history
 current_sl     = 0.990
 current_target = 1.016
-BNB_FEE_RATE   = 0.00075   # 0.075% Binance fee with BNB discount
-DANGER_ZONE_SL = 0.996     # tightened SL when price drops below entry
+BNB_FEE_RATE         = 0.00075  # 0.075% Binance fee with BNB discount
+DANGER_ZONE_SL       = 0.996    # tightened SL when price drops below entry
+SIGNIFICANT_WIN_PNL  = 0.08     # skip same asset next scan after winning this much (USDT)
 
 # Token blacklist / whitelist
 TOKEN_LIST_FILE          = "token_lists.json"
@@ -879,7 +880,13 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             current_qty = 0
 
             adjm = 0
-            last_asset = asset if ind == "l" else ""
+            if ind == "l":
+                last_asset = asset
+            elif pnl >= SIGNIFICANT_WIN_PNL:
+                last_asset = asset
+                status_queue.put(f"🏆 Big win on {asset} (${pnl:.4f}) — skipping next scan.")
+            else:
+                last_asset = ""
             open_position = False
             continue
 
