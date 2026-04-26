@@ -72,6 +72,7 @@ ai_log_buffer  = []       # persists messages so popup can show history
 current_sl     = 0.990
 current_target = 1.016
 BNB_FEE_RATE   = 0.00075   # 0.075% Binance fee with BNB discount
+DANGER_ZONE_SL = 0.996     # tightened SL when price drops below entry
 
 # Token blacklist / whitelist
 TOKEN_LIST_FILE          = "token_lists.json"
@@ -782,6 +783,13 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             else:
                 SL = 0.99
 
+        # ── Danger zone: price has dipped below entry ─────────────────────────
+        # Tighten SL toward entry to limit further loss; poll at max frequency.
+        in_danger = current_price < benchmark and adjm == 0
+        if in_danger and DANGER_ZONE_SL > SL:
+            SL = DANGER_ZONE_SL
+            status_queue.put(f"⚠ Danger zone — SL tightened to {buyprice * SL:.6f}")
+
         df_current = df[["Close", "SMA_fast", "SMA_slow", "Volume"]]
         df_current.to_sql("coin", engine2, if_exists="replace", index=False)
 
@@ -791,75 +799,23 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         sl_price = buyprice * SL
         sl_band = buyprice - sl_price
         distance_to_sl = current_price - sl_price
-        global poll_sleep
-        poll_sleep = max(2, min(30, 2 + (distance_to_sl / sl_band) * 28)) if sl_band > 0 else 10
 
-        # ── Mid-trade reassessment ────────────────────────────────────────────
-        # After STALL_CHECK_INTERVAL minutes, if price is sawing around the entry
-        # without progress, scan for a better opportunity and switch if found.
-        hold_elapsed = time.time() - buy_time
-        price_range_pct = abs(current_price - benchmark) / benchmark * 100
-        is_stalling = (
-            hold_elapsed >= STALL_CHECK_INTERVAL * 60
-            and price_range_pct < STALL_RANGE_PCT
-            and adjm == 0          # no trailing TP hit yet — still at original benchmark
-        )
-        if is_stalling:
-            status_queue.put(
-                f"⏳ {asset} stalling {hold_elapsed/60:.0f}m "
-                f"(price {price_range_pct:.3f}% from entry) — scanning alternatives."
-            )
-            current_score = (norm_diff * price_confidence) / max(total_risk, 0.1)
-            try:
-                alt_candidates = top_symbols()
-            except Exception:
-                alt_candidates = []
-            best_alt, best_alt_score = None, current_score * 1.5  # must be 50% better
-            for alt, _ in alt_candidates:
-                if alt == asset:
-                    continue
-                sc = score_candidate(alt, current_ma_fast, current_ma_slow, MIN_SPLIT_PCT)
-                time.sleep(1)
-                if sc is not None and sc > best_alt_score:
-                    best_alt_score = sc
-                    best_alt = alt
-            if best_alt:
-                # Only exit early if current price covers round-trip fees
-                min_exit_price = benchmark * (1 + 2 * BNB_FEE_RATE)
-                if current_price >= min_exit_price:
-                    status_queue.put(
-                        f"🔀 Switching {asset}→{best_alt} "
-                        f"(score {current_score:.3f}→{best_alt_score:.3f})"
-                    )
-                    # Force exit via SL path by setting SL just above current price
-                    SL = (current_price / buyprice) * 0.9999
-                else:
-                    status_queue.put(
-                        f"⏳ Better alt {best_alt} found but fee not yet covered "
-                        f"(need ${min_exit_price:.6f}, have ${current_price:.6f}) — holding."
-                    )
-        # ─────────────────────────────────────────────────────────────────────
-
-        time.sleep(poll_sleep)
-
+        # ── Sell check — before sleep so the SL is never overshot ────────────
         if current_price <= buyprice * SL or call_count > 3999:
             sell_verify = sell(asset, qty, trade)
             if in_trade_var:
                 in_trade_var.set("Not in trade")
 
-            # Use verified fill price from Binance if available
             if sell_verify and sell_verify["filled_qty"] > 0:
                 sellprice  = sell_verify["avg_price"]
                 sell_fee   = sell_verify["fee"]
                 sell_fee_asset = sell_verify["fee_asset"]
             else:
                 sellprice      = current_price
-                sell_fee       = sellprice * qty * BNB_FEE_RATE   # 0.075% sim fee
+                sell_fee       = sellprice * qty * BNB_FEE_RATE
                 sell_fee_asset = "USDT"
 
             total_fees = buy_fee + sell_fee
-            # PnL net of both buy and sell fees (fees in quote asset already deducted by Binance,
-            # but if fees are in BNB we add them as an approximate cost note)
             pnl = (sellprice - benchmark) * qty
             if buy_fee_asset == "USDT":
                 pnl -= buy_fee
@@ -925,6 +881,59 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             adjm = 0
             last_asset = asset if ind == "l" else ""
             open_position = False
+            continue
+
+        # ── Poll sleep — 2s in danger zone, dynamic otherwise ─────────────────
+        global poll_sleep
+        poll_sleep = 2 if in_danger else (max(2, min(30, 2 + (distance_to_sl / sl_band) * 28)) if sl_band > 0 else 10)
+
+        # ── Mid-trade reassessment ────────────────────────────────────────────
+        # After STALL_CHECK_INTERVAL minutes, if price is sawing around the entry
+        # without progress, scan for a better opportunity and switch if found.
+        hold_elapsed = time.time() - buy_time
+        price_range_pct = abs(current_price - benchmark) / benchmark * 100
+        is_stalling = (
+            hold_elapsed >= STALL_CHECK_INTERVAL * 60
+            and price_range_pct < STALL_RANGE_PCT
+            and adjm == 0          # no trailing TP hit yet — still at original benchmark
+        )
+        if is_stalling:
+            status_queue.put(
+                f"⏳ {asset} stalling {hold_elapsed/60:.0f}m "
+                f"(price {price_range_pct:.3f}% from entry) — scanning alternatives."
+            )
+            current_score = (norm_diff * price_confidence) / max(total_risk, 0.1)
+            try:
+                alt_candidates = top_symbols()
+            except Exception:
+                alt_candidates = []
+            best_alt, best_alt_score = None, current_score * 1.5  # must be 50% better
+            for alt, _ in alt_candidates:
+                if alt == asset:
+                    continue
+                sc = score_candidate(alt, current_ma_fast, current_ma_slow, MIN_SPLIT_PCT)
+                time.sleep(1)
+                if sc is not None and sc > best_alt_score:
+                    best_alt_score = sc
+                    best_alt = alt
+            if best_alt:
+                # Only exit early if current price covers round-trip fees
+                min_exit_price = benchmark * (1 + 2 * BNB_FEE_RATE)
+                if current_price >= min_exit_price:
+                    status_queue.put(
+                        f"🔀 Switching {asset}→{best_alt} "
+                        f"(score {current_score:.3f}→{best_alt_score:.3f})"
+                    )
+                    # Force exit via SL path by setting SL just above current price
+                    SL = (current_price / buyprice) * 0.9999
+                else:
+                    status_queue.put(
+                        f"⏳ Better alt {best_alt} found but fee not yet covered "
+                        f"(need ${min_exit_price:.6f}, have ${current_price:.6f}) — holding."
+                    )
+        # ─────────────────────────────────────────────────────────────────────
+
+        time.sleep(poll_sleep)
 
 def get_usdt():
     try:
