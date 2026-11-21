@@ -541,6 +541,13 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             continue
         time.sleep(2)
 
+        # Feed the chart with the coin being scanned so it keeps moving between trades.
+        currently_analyzing_asset = candidate
+        try:
+            df_c[["Close", "SMA_fast", "SMA_slow", "Volume"]].to_sql("coin", engine2, if_exists="replace", index=False)
+        except Exception:
+            pass
+
         momentum_condition = ((df_c.Close.pct_change() + 1).cumprod()).iloc[-1] > 1
         ma_condition = df_c['SMA_fast'].iloc[-1] > df_c['SMA_slow'].iloc[-1]
 
@@ -1413,13 +1420,15 @@ def animate_graph(i, ax, canvas, args):
     price_df = pd.DataFrame()
     try:
         price_df = pd.read_sql("SELECT * FROM coin", engine2)
-        params_df = pd.read_sql("SELECT * FROM coin", engine)
-    except Exception as e:
-        # Hold display until data is available
-        return
+    except Exception:
+        return   # no price data yet
+    try:
+        params_df = pd.read_sql("SELECT * FROM coin", engine)   # only exists once a trade has opened
+    except Exception:
+        params_df = pd.DataFrame()
 
-    if params_df.empty or price_df.empty:
-        ax.set_title("Waiting for trade...", color='#D3D3D3')
+    if price_df.empty or (in_trade and params_df.empty):
+        ax.set_title("Waiting for data...", color='#D3D3D3')
         canvas.draw()
         pnl_var.set(f"PNL: ${total_pnl:.2f}")
         equity_var.set(f"Equity: ${initial_balance + total_pnl:.2f}")
@@ -1460,15 +1469,18 @@ def animate_graph(i, ax, canvas, args):
         else:
             ma_diff_label.config(foreground='red')
 
-    params = params_df.values.tolist()
-    sl, target, buyprice, asset, benchmark = [p[0] for p in params]
-    sl, target, buyprice, benchmark = float(sl), float(target), float(buyprice), float(benchmark)
-
     ax.clear()
     ax.set_facecolor(lighter_bg_color)
-    ax.axhline(y=buyprice, color="#d62728", label="Buy Price")
-    ax.axhline(y=benchmark, color="#d6d628", linestyle="dashed", label="Benchmark")
-    ax.axhspan(sl, target, facecolor="#2ca02c", alpha=0.2)
+    if in_trade and not params_df.empty:
+        params = params_df.values.tolist()
+        sl, target, buyprice, asset, benchmark = [p[0] for p in params]
+        sl, target, buyprice, benchmark = float(sl), float(target), float(buyprice), float(benchmark)
+        ax.axhline(y=buyprice, color="#d62728", label="Buy Price")
+        ax.axhline(y=benchmark, color="#d6d628", linestyle="dashed", label="Benchmark")
+        ax.axhspan(sl, target, facecolor="#2ca02c", alpha=0.2)
+    else:
+        # No open position: show the coin currently being scanned (no stale SL/TP lines)
+        asset = f"Scanning: {currently_analyzing_asset or '…'}  (no open position)"
     ax.plot(price_df.index, price_df['Close'], label="Price")
     if 'SMA_fast' in price_df.columns:
         ax.plot(price_df.index, price_df['SMA_fast'], label="SMA 9", color="#17becf", linewidth=1, alpha=0.8)
