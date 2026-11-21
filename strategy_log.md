@@ -38,3 +38,20 @@ Universe is today's top-volume list => survivor-biased (flatters results); inclu
 Result: FAIL. The earlier +0.1% donchian_1h result (10 pairs, fee .05%) was selection luck + an unavailable fee tier.
 Gross edge ~0 for price-only breakout/trend signals on liquid USDT pairs; even before survivorship correction nothing clears costs.
 Also: one-position-at-a-time execution is worse than the all-signals average (first-signal-wins picks, drawdowns 30-50%).
+
+## Round 4 — perpetual funding rate as a predictor of forward SPOT returns (event study)
+25 USDT-perp symbols (of the top-40 spot universe), 2 years, 57.5k funding observations, 24h hold, net of 0.25% round-trip cost.
+Funding z-score uses only past observations (90-obs rolling), usable from next full hour after settlement. Weekly-clustered t-stats.
+
+| Funding z-bucket | n | raw fwd 24h | net of cost | clustered t | market-adj | adj t |
+|---|---|---|---|---|---|---|
+| z < -2 (shorts crowded) | 2994 | +0.096% | -0.154% | -0.01 | +0.056% | 0.59 |
+| -2..-1 | 5563 | +0.010% | -0.240% | -0.73 | -0.011% | -0.73 |
+| -1..1 | 44205 | -0.011% | -0.261% | -2.24 | +0.002% | 0.34 |
+| 1..2 | 4600 | -0.032% | -0.282% | -2.65 | -0.043% | 1.01 |
+| z > 2 | 146 | -0.123% | -0.373% | -1.63 | +0.042% | -0.06 |
+
+Stability: z<-2 bucket was +0.50% raw in the 1st half of the sample and -0.32% in the 2nd — the sign flips, so no durable effect.
+Result: FAIL. No bucket beats costs; market-adjusted effects are insignificant (|t|<1.2).
+Sanity: BTC funding averages 4.9%/yr (2024-11..2026-11) — data is sound. Funding carry (cash-and-carry) at ~5%/yr is the only
+"edge" here and needs a futures/margin account, not spot, and is far below the 10x goal.
