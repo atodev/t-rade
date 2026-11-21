@@ -315,6 +315,99 @@ def build_equity_chart(trades):
     buf.seek(0)
     return buf.read()
 
+# ── Active vs inactive time ───────────────────────────────────────────────────
+
+def compute_activity(trades, now, days=7):
+    """Hours per day spent IN a trade vs NOT in a trade (scanning / waiting / stopped).
+    A trade occupies [sell_time - hold_seconds, sell_time]; intervals are clipped to each day.
+    The bot's own downtime can't be told apart from scanning, so it counts as inactive."""
+    start_day = max(START_DATE.date(), (now - timedelta(days=days - 1)).date())
+    n = (now.date() - start_day).days + 1
+    if n <= 0:
+        return []
+    intervals = [(t["ts"] - timedelta(seconds=t["hold"]), t["ts"]) for t in trades if t["hold"] > 0]
+    out = []
+    for i in range(n):
+        d0 = datetime.combine(start_day + timedelta(days=i), datetime.min.time())
+        d1 = min(d0 + timedelta(days=1), now)
+        window = max((d1 - d0).total_seconds(), 1)
+        active = sum(max(0.0, (min(b, d1) - max(a, d0)).total_seconds()) for a, b in intervals)
+        active = min(active, window)
+        out.append({
+            "day": d0.date(),
+            "active": active / 3600,
+            "inactive": (window - active) / 3600,
+            "trades": sum(1 for t in trades if t["ts"].date() == d0.date()),
+        })
+    return out
+
+
+def build_activity_chart(act):
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+    except ImportError as e:
+        print(f"matplotlib not available: {e}")
+        return None
+    if not act:
+        return None
+
+    labels = [a["day"].strftime("%d %b") for a in act]
+    act_h  = [a["active"] for a in act]
+    ina_h  = [a["inactive"] for a in act]
+    n_trades = [a["trades"] for a in act]
+    tot_act, tot_ina, tot_trades = sum(act_h), sum(ina_h), sum(n_trades)
+
+    def style(ax):
+        ax.set_facecolor("#16213e")
+        ax.tick_params(colors="#aaaaaa")
+        ax.spines[:].set_color("#333355")
+
+    def annotate(ax, i, a_h, i_h, n):
+        tot = a_h + i_h
+        pct = a_h / tot * 100 if tot else 0
+        ax.text(i, tot * 1.02, f"{pct:.0f}% active\n{n} trade{'s' if n != 1 else ''}",
+                ha="center", va="bottom", color="#dddddd", fontsize=7)
+
+    fig, (ax, axt) = plt.subplots(1, 2, figsize=(10, 4.5), facecolor="#1a1a2e",
+                                  gridspec_kw={"width_ratios": [len(act), 1.4]})
+    # per-day bars (own scale: max 24h)
+    style(ax)
+    x = list(range(len(labels)))
+    ax.bar(x, act_h, color="#00c897", edgecolor="none", label="In trade")
+    ax.bar(x, ina_h, bottom=act_h, color="#4a5a8a", edgecolor="none", label="No trade (scanning / idle)")
+    for i in x:
+        annotate(ax, i, act_h[i], ina_h[i], n_trades[i])
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, color="#aaaaaa", fontsize=8)
+    ax.set_ylabel("Hours per day", color="#aaaaaa", fontsize=9)
+    ax.set_ylim(0, 24 * 1.22)
+    ax.legend(facecolor="#1a1a2e", edgecolor="none", labelcolor="white", fontsize=8,
+              loc="upper center", bbox_to_anchor=(0.5, -0.10), ncol=2)
+    ax.set_title("Per day", color="#aaaaaa", fontsize=9)
+
+    # total over the period (separate scale so it doesn't flatten the daily bars)
+    style(axt)
+    axt.bar([0], [tot_act], color="#00c897", edgecolor="none")
+    axt.bar([0], [tot_ina], bottom=[tot_act], color="#4a5a8a", edgecolor="none")
+    annotate(axt, 0, tot_act, tot_ina, tot_trades)
+    axt.set_xticks([0])
+    axt.set_xticklabels([f"TOTAL\n{len(act)} day(s)"], color="#aaaaaa", fontsize=8)
+    axt.set_ylim(0, (tot_act + tot_ina) * 1.22 or 1)
+    axt.set_ylabel("Hours", color="#aaaaaa", fontsize=9)
+    axt.yaxis.set_label_position("right")
+    axt.yaxis.tick_right()
+    axt.set_title("Sum", color="#aaaaaa", fontsize=9)
+    fig.suptitle("Active vs Inactive — time in a trade vs no trade", color="white", fontsize=11, fontweight="bold")
+
+    plt.tight_layout()
+    buf = io.BytesIO()
+    plt.savefig(buf, format="png", dpi=120, bbox_inches="tight", facecolor=fig.get_facecolor())
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
+
 # ── Build and send ────────────────────────────────────────────────────────────
 
 now     = datetime.now()
@@ -355,6 +448,19 @@ if btc_24h is not None:
     )
 else:
     market_str = "  Market data unavailable"
+
+# ── Active vs inactive ────────────────────────────────────────────────────────
+activity   = compute_activity(trades, now)
+act_total  = sum(a["active"] for a in activity)
+ina_total  = sum(a["inactive"] for a in activity)
+act_pct    = act_total / (act_total + ina_total) * 100 if (act_total + ina_total) else 0
+today_act  = activity[-1] if activity else None
+activity_str = (
+    f"  Last {len(activity)} day(s): in trade {act_total:.1f}h ({act_pct:.1f}%) | "
+    f"no trade {ina_total:.1f}h ({100 - act_pct:.1f}%)\n"
+    + (f"  Today: in trade {today_act['active']:.1f}h | no trade {today_act['inactive']:.1f}h | "
+       f"{today_act['trades']} trade(s)" if today_act else "  No data")
+)
 
 # ── Objective status ──────────────────────────────────────────────────────────
 gap         = TARGET_EQUITY - current_eq
@@ -422,6 +528,9 @@ msg = f"""📊 t-rade DAILY EXECUTIVE SUMMARY — {today}
   Best risk band: {an['best_risk']}
   Best hold time: {an['best_hold']}
 
+━━━ ACTIVE vs INACTIVE ━━━
+{activity_str}
+
 ━━━ AI ENGINE ━━━
   Eval cycles: {sl['cycle']} | Param switches: {sl['param_switches']}
   Current params: SL={sl['sl']} TP={sl['target']} MA({sl['ma']})
@@ -447,3 +556,11 @@ except Exception as e:
     import traceback
     print(f"Chart error: {e}")
     traceback.print_exc()
+
+try:
+    act_chart = build_activity_chart(activity)
+    if act_chart:
+        send_photo(act_chart, caption=f"Active vs inactive — last {len(activity)} day(s)")
+        print("Activity chart sent.")
+except Exception as e:
+    print(f"Activity chart error: {e}")
