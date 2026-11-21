@@ -19,7 +19,7 @@ from ai_engine import AIStrategyEngine
 import analytics
 import urllib.request
 import json as _json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # --- Global Variables and Initializations ---
 
@@ -121,6 +121,30 @@ def telegram_notify(message: str):
         urllib.request.urlopen(req, timeout=5)
     except Exception:
         pass
+
+# --- Backtest gate (written by autotest.py) ---
+STATE_FILE          = "strategy_state.json"
+STATE_MAX_AGE_HOURS = 30          # autotest runs every ~12h; older than this => treat as failed
+LIVE_IMPLEMENTED    = {"baseline"}  # strategies main.py can actually execute live today
+
+def live_gate():
+    """Return (allowed, reason). Fail-closed: any problem => sim only.
+    Independent of force_sim_override so the AI engine cannot re-enable live trading."""
+    try:
+        with open(STATE_FILE) as f:
+            st = _json.load(f)
+        age_h = (datetime.now(timezone.utc) - datetime.fromisoformat(st["updated"])).total_seconds() / 3600
+        if age_h > STATE_MAX_AGE_HOURS:
+            return False, f"strategy_state.json stale ({age_h:.0f}h old)"
+        if not st.get("live_ok"):
+            return False, f"backtest gate not passed (candidate={st.get('candidate')}, passes={st.get('consecutive_passes', 0)})"
+        if st.get("strategy") not in LIVE_IMPLEMENTED:
+            return False, f"approved strategy '{st.get('strategy')}' not implemented in main.py yet"
+        return True, f"approved: {st['strategy']}"
+    except FileNotFoundError:
+        return False, "no strategy_state.json — run autotest.py"
+    except Exception as e:
+        return False, f"state read error: {e}"
 
 # --- Functions ---
 
@@ -461,6 +485,12 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         status_queue.put(
             f"F&G {fg_value} ({fg_label}) below {MIN_FG} — forcing sim to protect capital."
         )
+        force_sim = True
+
+    # 2b. Backtest gate: live only if autotest.py has approved a strategy (fail-closed).
+    gate_ok, gate_reason = live_gate()
+    if not gate_ok and not force_sim:
+        status_queue.put(f"Live blocked — {gate_reason}. Sim only.")
         force_sim = True
 
     # 3. BTC macro filter: block LIVE entries during a BTC downtrend.

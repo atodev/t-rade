@@ -12,3 +12,8 @@ __pycache__/
 # Virtual env
 venv/
 env/
+
+# Backtest cache
+data/
+strategy_state.json
+autotest.log

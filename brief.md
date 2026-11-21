@@ -1,4 +1,4 @@
-main.py is a tradeing app that accesses binance with api keys. It uses the api to get the best performing tokens then according to risk, places a trade and sels if the take loss is hit - the moving window allows the price to move into new price territory.
+main.py is a tradeing app that accesses binance with api keys. It uses the api to get the best performing tokens then according to risk, places a trade and sells if the take loss is hit - the moving window allows the price to move into new price territory.
 
 the frame work is simplistic and much can be done with:
 different stratergies. 
