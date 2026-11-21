@@ -110,13 +110,15 @@ SECRET_KEY     = os.getenv("SECRET_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT  = os.getenv("TELEGRAM_CHAT_ID")
 
-def telegram_notify(message: str):
-    """Send a message to Telegram. Silently fails if token not configured."""
+def telegram_notify(message: str, sound: bool = False):
+    """Send a message to Telegram. Silently fails if token not configured.
+    Messages are delivered without a notification sound unless sound=True (profits only)."""
     if not TELEGRAM_TOKEN or not TELEGRAM_CHAT:
         return
     try:
         url  = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-        data = _json.dumps({"chat_id": TELEGRAM_CHAT, "text": message, "parse_mode": "HTML"}).encode()
+        data = _json.dumps({"chat_id": TELEGRAM_CHAT, "text": message, "parse_mode": "HTML",
+                            "disable_notification": not sound}).encode()
         req  = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
         urllib.request.urlopen(req, timeout=5)
     except Exception:
@@ -145,6 +147,26 @@ def live_gate():
         return False, "no strategy_state.json — run autotest.py"
     except Exception as e:
         return False, f"state read error: {e}"
+
+# --- Single-instance lock ---
+_lock_file = None
+
+def acquire_single_instance(path=".t-rade.lock"):
+    """Only one bot per folder may run. A second copy would open a second position
+    and write the same trade files. Returns False if another instance holds the lock."""
+    global _lock_file
+    try:
+        import fcntl
+    except ImportError:          # non-POSIX: skip
+        return True
+    _lock_file = open(path, "w")
+    try:
+        fcntl.flock(_lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return False
+    _lock_file.write(str(os.getpid()))
+    _lock_file.flush()
+    return True
 
 # --- Functions ---
 
@@ -458,6 +480,11 @@ def sell(asset, qty, is_trade):
 def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var=None, force_sim=False):
     global lc, pc, adjm, trade, last_asset, call_count, usdt_bal, consec_lc, consec_pc, df_log, total_pnl, total_adjm
     global currently_analyzing_asset, analysis_count, current_sl, current_target, current_ma_fast, current_ma_slow
+    global in_trade, current_buyprice, current_qty
+    if in_trade:                       # never open a second position
+        status_queue.put("Position already open — not scanning for another.")
+        time.sleep(10)
+        return
     if SL is None:
         SL = current_sl
     if Target is None:
@@ -764,7 +791,6 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         buy_fee = qty * buyprice * BNB_FEE_RATE   # 0.075% sim fee (BNB discount, expressed as USDT cost)
         buy_fee_asset = "USDT"
 
-    global in_trade, current_buyprice, current_qty
     in_trade = True
     current_buyprice = buyprice
     current_qty = qty
@@ -888,8 +914,10 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
                     f"🟢 <b>PROFIT [{'LIVE' if trade else 'SIM'}]</b> {asset}\n"
                     f"Sell: <code>${sellprice:.6f}</code>  Buy: <code>${benchmark:.6f}</code>\n"
                     f"PnL: +${pnl:.4f}  Fees: {total_fees:.6f} {sell_fee_asset or buy_fee_asset}\n"
-                    f"Hold: {hold_secs//60}m {hold_secs%60}s  W/L: {pc+1}/{lc}  Bal: ${usdt_bal:.4f}"
+                    f"Hold: {hold_secs//60}m {hold_secs%60}s  W/L: {pc+1}/{lc}  Bal: ${usdt_bal:.4f}",
+                    sound=True,
                 )
+                status_queue.put("!PROFIT!")   # GUI plays the profit sound
                 pc += 1
                 consec_pc += 1
                 consec_lc = 0
@@ -1245,6 +1273,68 @@ def open_ai_log_popup(root, bg_color_str, fg_color_str, lighter_bg_color_str):
     refresh()
 
 
+def pattern_lines(t, w, h, layers=3):
+    """Pure geometry for the idle 'in action' pattern: nested rotating rose curves.
+    Returns [(flat_xy_list, colour, width), ...]."""
+    cx, cy = w / 2, h / 2
+    R = min(w, h) * 0.40
+    colours = ["#2ec4b6", "#ff9f1c", "#9b5de5"]
+    out = []
+    for L in range(layers):
+        k = (3, 5, 7)[L % 3]
+        scale = R * (0.50 + 0.25 * L)
+        spin = t * 0.30 * (1 if L % 2 == 0 else -1)
+        pts = []
+        steps = 240
+        for i in range(steps + 1):
+            th = 2 * math.pi * i / steps
+            r = scale * (0.62 + 0.38 * math.cos(k * th + t * (1.0 + 0.35 * L)))
+            pts += [cx + r * math.cos(th + spin), cy + r * math.sin(th + spin)]
+        out.append((pts, colours[L % 3], 2 if L == 0 else 1))
+    return out
+
+
+def start_idle_pattern(root, parent, bg):
+    """Overlay on the chart area while no position is open: a slowly rotating geometric pattern
+    shows the bot is alive. Hidden automatically whenever a trade is open."""
+    cv = tk.Canvas(parent, bg=bg, highlightthickness=0)
+    st = {"t": 0.0, "shown": False}
+
+    def tick():
+        try:
+            if in_trade:
+                if st["shown"]:
+                    cv.place_forget()
+                    st["shown"] = False
+            else:
+                if not st["shown"]:
+                    cv.place(relx=0, rely=0, relwidth=1, relheight=1)
+                    tk.Misc.lift(cv)          # raise the widget (Canvas.lift would raise canvas items)
+                    st["shown"] = True
+                w, h = cv.winfo_width(), cv.winfo_height()
+                if w > 20 and h > 20:
+                    cv.delete("all")
+                    if session_active:
+                        st["t"] += 0.04
+                    for pts, colour, width in pattern_lines(st["t"], w, h):
+                        cv.create_line(*pts, fill=colour, width=width, smooth=True)
+                    if session_active:
+                        label = (f"Scanning  {currently_analyzing_asset}" if currently_analyzing_asset
+                                 else "Looking for a candidate…")
+                    else:
+                        label = "Session stopped — press start"
+                    cv.create_text(w / 2, h - 28, text=label, fill="#9aa0a6", font=("Helvetica", 12))
+        except Exception:
+            if not st.get("err"):          # report the first failure only, keep animating
+                st["err"] = True
+                import traceback
+                traceback.print_exc()
+        finally:
+            root.after(60, tick)
+
+    tick()
+
+
 def create_main_window():
     global style
     root = tk.Tk()
@@ -1369,7 +1459,10 @@ def check_status_queue(root, status_text_widget, profit_icon_label):
     while not status_queue.empty():
         message = status_queue.get_nowait()
         
-        if message == "!TAKE_PROFIT!":
+        if message == "!PROFIT!":          # profitable close — sound only, text already logged
+            root.bell()
+            continue
+        if message == "!TAKE_PROFIT!":     # adjustment (trailing TP hit)
             root.bell()
             profit_icon_label.place(relx=0.5, rely=0.5, anchor='center')
             root.after(1000, lambda: profit_icon_label.place_forget())
@@ -1583,6 +1676,8 @@ def _run_headless():
             for q in (status_queue, ai_log_queue):
                 while not q.empty():
                     msg = q.get_nowait()
+                    if msg == "!PROFIT!":
+                        continue
                     ai_log_buffer.append(msg)
                     print(msg, flush=True)
     except KeyboardInterrupt:
@@ -1593,6 +1688,11 @@ def _run_headless():
 if __name__ == "__main__":
     headless   = "--headless"   in sys.argv
     autostart  = "--autostart"  in sys.argv
+
+    if not acquire_single_instance():
+        print("[t-rade] Another instance is already running in this folder — exiting "
+              "(two copies would open two positions).")
+        sys.exit(1)
 
     try:
         client = Client(API_KEY, SECRET_KEY)
@@ -1614,6 +1714,7 @@ if __name__ == "__main__":
          profit_icon_label, in_trade_var, throttle_var, trade_mode_label, current_price_label) = create_main_window()
 
         fig, ax, canvas = setup_graph(graph_frame, bg_color)
+        start_idle_pattern(root, graph_frame, '#2E2E2E' if dark_mode else '#F8F9FA')
 
         trader_args = (asset_var, percent_var, count_var, status_text, roi_var, risk_var, adj_var,
                        ma_diff_var, ma_diff_label, ratio_var, pnl_var, equity_var, profit_icon_label, in_trade_var)

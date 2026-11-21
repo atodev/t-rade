@@ -17,3 +17,4 @@ env/
 data/
 strategy_state.json
 autotest.log
+.t-rade.lock
