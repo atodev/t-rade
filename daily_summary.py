@@ -28,10 +28,19 @@ load_dotenv()
 TELEGRAM_TOKEN  = os.getenv("TELEGRAM_TOKEN")
 TELEGRAM_CHAT   = os.getenv("TELEGRAM_CHAT_ID")
 
-START_EQUITY    = 19.19
-TARGET_EQUITY   = 191.90
-START_DATE      = datetime(2026, 4, 25)   # mission 2 start
-TOTAL_DAYS      = 10
+# Mission 3 (reset 2026-11-23). Goal: recover the original $19.19 stake in 90 days (~0.5%/day),
+# gated by process milestones. The earlier 10x-in-10-days target had no supported edge behind it.
+START_EQUITY    = 11.80                   # equity at the reset (last real balance)
+TARGET_EQUITY   = 19.19
+START_DATE      = datetime(2026, 11, 23)
+TOTAL_DAYS      = 90
+EQUITY_LADDER   = [1.05, 1.15, 1.30, TARGET_EQUITY / START_EQUITY]   # multiples of START_EQUITY
+
+# Process milestones (sim counts, live gated by autotest.py)
+MIN_TRADES      = 150      # completed trades since reset before judging anything
+MIN_WIN_RATE    = 45.0     # % — break-even is ~44% at current costs
+LIVE_TRADES_REQ = 30       # profitable live trades required, at small size
+MAX_DRAWDOWN    = 10.0     # % of equity
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -99,6 +108,7 @@ def load_trades():
                         "ts":    ts,
                         "asset": parts[3],
                         "ind":   parts[16],   # p or l
+                        "mode":  parts[5],    # live or sim
                         "pnl":   pnl,
                         "bal":   bal,
                         "risk":  float(parts[22]) if len(parts) > 22 else 0.0,
@@ -222,6 +232,23 @@ def get_btc_dominance():
             pass
     return None
 
+def max_drawdown_pct(trades):
+    run = peak = START_EQUITY
+    dd = 0.0
+    for t in trades:
+        run += t["pnl"]
+        peak = max(peak, run)
+        dd = max(dd, (peak - run) / peak * 100)
+    return dd
+
+def gate_status():
+    try:
+        with open("strategy_state.json") as f:
+            st = json.load(f)
+        return bool(st.get("live_ok")), st.get("candidate"), st.get("consecutive_passes", 0)
+    except Exception:
+        return False, None, 0
+
 # ── Equity trajectory chart ───────────────────────────────────────────────────
 
 def build_equity_chart(trades):
@@ -244,8 +271,11 @@ def build_equity_chart(trades):
 
     # Actual equity from trade log
     if trades:
+        run, eq_list = START_EQUITY, [START_EQUITY]
+        for t in trades:
+            run += t["pnl"]
+            eq_list.append(run)
         ts_list  = [START_DATE] + [t["ts"] for t in trades]
-        eq_list  = [START_EQUITY] + [t["bal"] for t in trades]
     else:
         ts_list  = [START_DATE, now]
         eq_list  = [START_EQUITY, START_EQUITY]
@@ -271,6 +301,10 @@ def build_equity_chart(trades):
              linestyle="--", label=f"Required (→${TARGET_EQUITY:.0f})")
     ax1.plot(ts_list, eq_list, color="#00c897", linewidth=2, label="Actual equity")
     ax1.axhline(TARGET_EQUITY, color="#ff6b6b", linewidth=0.8, linestyle=":")
+    for m in EQUITY_LADDER[:-1]:
+        ax1.axhline(START_EQUITY * m, color="#555577", linewidth=0.6, linestyle=":")
+        ax1.annotate(f" +{(m-1)*100:.0f}%", (START_DATE + timedelta(days=TOTAL_DAYS), START_EQUITY * m),
+                     color="#777799", fontsize=7, va="center")
     ax1.fill_between(ts_list, eq_list, alpha=0.15, color="#00c897")
 
     # Mark current position
@@ -280,7 +314,7 @@ def build_equity_chart(trades):
                      color="#00c897", fontsize=9)
 
     ax1.set_xlim(START_DATE, START_DATE + timedelta(days=TOTAL_DAYS))
-    ax1.set_ylim(0, TARGET_EQUITY * 1.1)
+    ax1.set_ylim(min(min(eq_list), START_EQUITY) * 0.85, max(max(eq_list), TARGET_EQUITY) * 1.1)
     ax1.xaxis.set_major_formatter(mdates.DateFormatter("%d %b"))
     ax1.tick_params(colors="#aaaaaa", labelsize=8)
     ax1.spines[:].set_color("#333355")
@@ -412,10 +446,11 @@ def build_activity_chart(act):
 
 now     = datetime.now()
 today   = now.strftime("%Y-%m-%d")
-elapsed = max(1, (now - START_DATE).days)
+elapsed_f = max(0.0, (now - START_DATE).total_seconds() / 86400)
+elapsed   = int(elapsed_f) + 1                   # "Day N"
 remaining = max(0, TOTAL_DAYS - elapsed)
 
-trades  = load_trades()
+trades  = [t for t in load_trades() if t["ts"] >= START_DATE]   # this mission only
 sl      = parse_strategy_log()
 an      = parse_analytics()
 btc_24h = get_btc_24h()
@@ -430,7 +465,7 @@ total       = wins + losses
 win_rate    = wins / total * 100 if total else 0
 total_pnl   = sum(t["pnl"] for t in sells)
 avg_pnl     = total_pnl / total if total else 0
-current_eq  = sells[-1]["bal"] if sells else START_EQUITY
+current_eq  = START_EQUITY + total_pnl          # real balance doesn't move in sim, so track P&L
 portfolio_pct = (current_eq - START_EQUITY) / START_EQUITY * 100
 
 # t-rade vs market
@@ -464,8 +499,8 @@ activity_str = (
 
 # ── Objective status ──────────────────────────────────────────────────────────
 gap         = TARGET_EQUITY - current_eq
-required_now = START_EQUITY * (TARGET_EQUITY / START_EQUITY) ** (elapsed / TOTAL_DAYS)
-on_curve    = current_eq >= required_now
+required_now = START_EQUITY * (TARGET_EQUITY / START_EQUITY) ** (min(elapsed_f, TOTAL_DAYS) / TOTAL_DAYS)
+on_curve    = current_eq >= required_now * 0.97   # 3% tolerance
 daily_req   = (TARGET_EQUITY / current_eq) ** (1 / max(remaining, 1)) - 1  # % per day needed
 proj_num    = float(re.sub(r"[^\d.-]", "", sl["proj"])) if sl["proj"] != "?" else 0
 
@@ -474,6 +509,28 @@ if on_curve:
 else:
     deficit = required_now - current_eq
     trajectory = f"BEHIND (${deficit:.2f} below required curve)"
+
+# ── Milestones ────────────────────────────────────────────────────────────────
+max_dd       = max_drawdown_pct(sells)
+live_sells   = [t for t in sells if t["mode"] == "live"]
+live_pnl     = sum(t["pnl"] for t in live_sells)
+gate_ok, gate_cand, gate_passes = gate_status()
+tick = lambda ok: "✔" if ok else "◻"
+ladder_lines = "\n".join(
+    f"  {tick(current_eq >= START_EQUITY * m)} +{(m - 1) * 100:.0f}%  ${START_EQUITY * m:.2f}"
+    + ("  (original stake recovered)" if m == EQUITY_LADDER[-1] else "")
+    for m in EQUITY_LADDER
+)
+p1 = total >= MIN_TRADES
+p2 = p1 and win_rate >= MIN_WIN_RATE and avg_pnl > 0
+p4 = len(live_sells) >= LIVE_TRADES_REQ and live_pnl > 0 and max_dd <= MAX_DRAWDOWN
+process_lines = (
+    f"  {tick(p1)} {MIN_TRADES} trades since reset ({total}/{MIN_TRADES})\n"
+    f"  {tick(p2)} Win rate >= {MIN_WIN_RATE:.0f}% and avg P&L > 0 (now {win_rate:.0f}% / ${avg_pnl:+.4f})\n"
+    f"  {tick(gate_ok)} Backtest gate approved (candidate: {gate_cand or 'none'}, passes {gate_passes}/2)\n"
+    f"  {tick(p4)} {LIVE_TRADES_REQ} live trades profitable, drawdown <= {MAX_DRAWDOWN:.0f}% "
+    f"(live {len(live_sells)}/{LIVE_TRADES_REQ}, ${live_pnl:+.2f}, max DD {max_dd:.1f}%)"
+)
 
 # ── AI engine summary ─────────────────────────────────────────────────────────
 ai_lines = read_file("milestone_log.md")
@@ -500,6 +557,8 @@ if consec_l >= 3:
     warnings.append(f"{consec_l} consecutive losses")
 if not on_curve:
     warnings.append(f"Behind required trajectory by ${required_now - current_eq:.2f}")
+if max_dd > MAX_DRAWDOWN:
+    warnings.append(f"Drawdown {max_dd:.1f}% exceeds {MAX_DRAWDOWN:.0f}% limit")
 if ai_errors > 0:
     warnings.append(f"AI engine logged {ai_errors} error(s)")
 warn_str = "\n  ".join(warnings) if warnings else "NONE"
@@ -508,12 +567,18 @@ warn_str = "\n  ".join(warnings) if warnings else "NONE"
 msg = f"""📊 t-rade DAILY EXECUTIVE SUMMARY — {today}
 
 ━━━ OBJECTIVE ━━━
-  Start: ${START_EQUITY:.2f}  →  Target: ${TARGET_EQUITY:.2f} (10×)
+  Start: ${START_EQUITY:.2f}  →  Goal: ${TARGET_EQUITY:.2f} ({TARGET_EQUITY/START_EQUITY:.2f}×)
   Day {elapsed} of {TOTAL_DAYS} | {remaining} day(s) remaining
   Current equity: ${current_eq:.2f} ({portfolio_pct:+.1f}% vs start)
   Trajectory: {trajectory}
   Required daily growth: {daily_req*100:.2f}%/day from here
   Projected 7d: {sl['proj']}
+
+━━━ MILESTONES ━━━
+ Equity (sim + live P&L since reset):
+{ladder_lines}
+ Process:
+{process_lines}
 
 ━━━ vs MARKET ━━━
 {market_str}
