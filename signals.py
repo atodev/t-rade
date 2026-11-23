@@ -100,6 +100,10 @@ def meanrev(df, rsi_n=2, thresh=10, trend=200):
     return pd.DataFrame({"entry": (up & oversold).fillna(False), "stop_frac": 2.5 * a / c, "atr_frac": a / c})
 
 
+# Strategies main.py can actually execute live. autotest.py and main.py both read this.
+# Add a name here only after its entry/exit logic is implemented in main.py.
+LIVE_IMPLEMENTED = {"baseline"}
+
 STRATEGIES = {
     "baseline": baseline,
     "trend_breakout": trend_breakout,

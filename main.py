@@ -128,7 +128,7 @@ def telegram_notify(message: str, sound: bool = False):
 # --- Backtest gate (written by autotest.py) ---
 STATE_FILE          = "strategy_state.json"
 STATE_MAX_AGE_HOURS = 30          # autotest runs every ~12h; older than this => treat as failed
-LIVE_IMPLEMENTED    = {"baseline"}  # strategies main.py can actually execute live today
+from signals import LIVE_IMPLEMENTED   # strategies main.py can actually execute live (single source: signals.py)
 _last_gate_msg = [None]   # last gate message announced (avoids repeating it every scan)
 
 # --- Risk safeguards (see risk.py): risk-based sizing + daily/drawdown/streak halts for LIVE trading ---
