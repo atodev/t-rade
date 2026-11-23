@@ -16,6 +16,7 @@ from binance.client import Client
 from termcolor import colored
 from queue import Queue
 from ai_engine import AIStrategyEngine
+from risk import RiskManager
 import analytics
 import urllib.request
 import json as _json
@@ -129,6 +130,21 @@ STATE_FILE          = "strategy_state.json"
 STATE_MAX_AGE_HOURS = 30          # autotest runs every ~12h; older than this => treat as failed
 LIVE_IMPLEMENTED    = {"baseline"}  # strategies main.py can actually execute live today
 _last_gate_msg = [None]   # last gate message announced (avoids repeating it every scan)
+
+# --- Risk safeguards (see risk.py): risk-based sizing + daily/drawdown/streak halts for LIVE trading ---
+risk_mgr = RiskManager("risk_state.json")
+sim_pnl = 0.0              # cumulative simulated P&L this run, so sim sizing tracks a virtual balance
+_last_risk_msg = [None]
+
+def plan_position(price, SL, virtual=False):
+    """Risk-based position for a candidate. Returns (qty, notional, reason); qty falsy => skip.
+    Equity = real USDT balance + simulated P&L (live P&L is already in the balance).
+    virtual=True (simulation): the virtual balance is floored at the exchange minimum so a losing
+    sim keeps trading and collecting data instead of stalling."""
+    equity = usdt_bal + sim_pnl
+    if virtual:
+        equity = max(equity, risk_mgr.p["min_notional"] / 0.98 + 0.05)
+    return risk_mgr.size(equity, float(price), 1.0 - SL)
 
 def live_gate():
     """Return (allowed, reason). Fail-closed: any problem => sim only.
@@ -479,7 +495,7 @@ def sell(asset, qty, is_trade):
         return None
 
 def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var=None, force_sim=False):
-    global lc, pc, adjm, trade, last_asset, call_count, usdt_bal, consec_lc, consec_pc, df_log, total_pnl, total_adjm
+    global lc, pc, adjm, trade, last_asset, call_count, usdt_bal, consec_lc, consec_pc, df_log, total_pnl, total_adjm, sim_pnl
     global currently_analyzing_asset, analysis_count, current_sl, current_target, current_ma_fast, current_ma_slow
     global in_trade, current_buyprice, current_qty
     if in_trade:                       # never open a second position
@@ -525,6 +541,19 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     if not gate_ok:
         force_sim = True
 
+    # 2c. Risk breakers (daily loss, loss streak, drawdown) — live only; sim keeps collecting data.
+    risk_ok, risk_reason = risk_mgr.live_allowed(usdt_bal)
+    risk_msg = None if risk_ok else f"Live risk {risk_reason}. Sim only."
+    if risk_msg != _last_risk_msg[0]:
+        _last_risk_msg[0] = risk_msg
+        if risk_msg:
+            status_queue.put(risk_msg)
+            telegram_notify(f"🛑 <b>RISK HALT</b>\n{risk_reason}")
+        else:
+            status_queue.put("Live risk halt cleared.")
+    if not risk_ok:
+        force_sim = True
+
     # 3. BTC macro filter: block LIVE entries during a BTC downtrend.
     #    Sim is always allowed through so the AI keeps collecting data
     #    and can learn what works (or doesn't) in bear conditions.
@@ -549,7 +578,6 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         return
 
     asset, percentage, df, total_risk, qty = None, 0, None, 0, 0
-    MIN_NOTIONAL = max(10.0, usdt_bal * 0.20)  # at least 20% of balance, min $10
     norm_diff, trend_label, price_confidence = 0.0, "widening", 0.0
 
     token_lists = load_token_lists()
@@ -651,12 +679,9 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
 
         # Position sizing: scale from 60% at risk=2 down to 30% at risk=10.
         # Clamp to valid range so the formula never goes negative.
-        buy_proportion = 0.60 - ((total_risk - 2) / 8) * 0.30
-        buy_proportion = max(0.30, min(0.60, buy_proportion))
-        buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
-        qty = round(buy_amt / df.Close.iloc[-1]) if df.Close.iloc[-1] > 0 else 0
-        if qty == 0:
-            status_queue.put(f"{candidate} skipped — price ${df.Close.iloc[-1]:.4f} too high for ${buy_amt:.2f} budget.")
+        qty, buy_amt, size_why = plan_position(df.Close.iloc[-1], SL, virtual=force_sim)
+        if not qty:
+            status_queue.put(f"{candidate} skipped — {size_why}.")
             continue
         break
 
@@ -701,11 +726,9 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             status_queue.put(
                 f"⭐ Whitelist: {wl_asset} split={norm_diff:.3f}% risk={total_risk:.1f} conf={price_confidence:.0%}"
             )
-            buy_proportion = max(0.30, min(0.60, 0.60 - ((total_risk - 2) / 8) * 0.30))
-            buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
-            qty = round(buy_amt / df_c.Close.iloc[-1]) if df_c.Close.iloc[-1] > 0 else 0
-            if qty == 0:
-                status_queue.put(f"⭐ {wl_asset} skipped — price ${df_c.Close.iloc[-1]:.4f} too high for ${buy_amt:.2f} budget.")
+            qty, buy_amt, size_why = plan_position(df_c.Close.iloc[-1], SL, virtual=force_sim)
+            if not qty:
+                status_queue.put(f"⭐ {wl_asset} skipped — {size_why}.")
                 continue
             asset, percentage, df = wl_asset, 0.0, df_c
             break
@@ -751,11 +774,9 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             status_queue.put(
                 f"💎 Blue-chip: {bc_asset} split={norm_diff:.3f}% risk={total_risk:.1f} conf={price_confidence:.0%}"
             )
-            buy_proportion = max(0.30, min(0.60, 0.60 - ((total_risk - 2) / 8) * 0.30))
-            buy_amt = max(MIN_NOTIONAL, buy_proportion * usdt_bal)
-            qty = round(buy_amt / df_c.Close.iloc[-1]) if df_c.Close.iloc[-1] > 0 else 0
-            if qty == 0:
-                status_queue.put(f"💎 {bc_asset} skipped — price ${df_c.Close.iloc[-1]:.4f} too high for ${buy_amt:.2f} budget.")
+            qty, buy_amt, size_why = plan_position(df_c.Close.iloc[-1], SL, virtual=force_sim)
+            if not qty:
+                status_queue.put(f"💎 {bc_asset} skipped — {size_why}.")
                 continue
             asset, percentage, df = bc_asset, 0.0, df_c
             break
@@ -772,11 +793,10 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         risk_var.set(f"Risk: {total_risk:.2f}/10")
     status_queue.put(f"Selected: {asset} ({percentage:.2f}%)")
 
-    trade = pc >= lc
-    if pc >= lc and consec_lc > 3: trade = False
-    if lc > pc and consec_lc > 5: trade = True
-    if adjm > lc: trade = True
-    if force_sim: trade = False
+    # Live only when the backtest gate is open and no risk halt is active (force_sim covers both,
+    # plus low balance / AI override). The old win/loss-streak rules — which switched to LIVE after
+    # a losing streak — are removed.
+    trade = not force_sim
 
     buyprice = df.Close.iloc[-1]
     benchmark = buyprice
@@ -929,6 +949,10 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
                 ind = "p"
 
             usdt_bal = get_usdt()
+            if trade:
+                risk_mgr.record_live_trade(pnl, usdt_bal)     # drives daily/streak/drawdown halts
+            else:
+                sim_pnl += pnl                                 # virtual balance for sim sizing
             dt = df.index[-1]
             new_row = log(dt, asset, "sell", trade, sellprice, qty, cost, pc, lc, consec_pc, consec_lc, ind, usdt_bal, adjm, call_count,
                           pnl=pnl, split_pct=norm_diff, trend_dir=trend_label, risk_score=total_risk,
@@ -1032,9 +1056,18 @@ def manual_buy():
         return
     buyprice = df.Close.iloc[-1]
     bal = get_usdt()
-    buy_amt = 0.5 * bal
-    qty = round(buy_amt / buyprice) if buyprice > 0 else 0
-    if qty == 0:
+    # Manual orders are real money: they obey the same backtest gate, risk halts and sizing as the bot.
+    ok, why = live_gate()
+    if not ok:
+        status_queue.put(f"Manual BUY blocked — {why}")
+        return
+    ok, why = risk_mgr.live_allowed(bal)
+    if not ok:
+        status_queue.put(f"Manual BUY blocked — {why}")
+        return
+    qty, _, why = risk_mgr.size(bal, float(buyprice), 1.0 - current_sl)
+    if not qty:
+        status_queue.put(f"Manual BUY blocked — {why}")
         return
     buy(asset, qty, True)
     in_trade = True

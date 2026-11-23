@@ -18,3 +18,4 @@ data/
 strategy_state.json
 autotest.log
 .t-rade.lock
+risk_state.json
