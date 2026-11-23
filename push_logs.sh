@@ -22,5 +22,13 @@ if git diff --cached --quiet; then
 fi
 
 git commit -m "logs: auto-update $(date -u '+%Y-%m-%d %H:%M UTC')"
+
+# Other machines (the Mac) push to main too — integrate their commits first, otherwise the
+# push is rejected (non-fast-forward) and every later run fails the same way.
+if ! git pull --rebase --autostash -q origin main; then
+    git rebase --abort 2>/dev/null || true
+    echo "[$(date)] pull --rebase hit a conflict — logs NOT pushed (committed locally). Resolve manually."
+    exit 1
+fi
 git push origin main
 echo "[$(date)] Logs pushed to GitHub."
