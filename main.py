@@ -128,6 +128,7 @@ def telegram_notify(message: str, sound: bool = False):
 STATE_FILE          = "strategy_state.json"
 STATE_MAX_AGE_HOURS = 30          # autotest runs every ~12h; older than this => treat as failed
 LIVE_IMPLEMENTED    = {"baseline"}  # strategies main.py can actually execute live today
+_last_gate_msg = [None]   # last gate message announced (avoids repeating it every scan)
 
 def live_gate():
     """Return (allowed, reason). Fail-closed: any problem => sim only.
@@ -516,8 +517,12 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
 
     # 2b. Backtest gate: live only if autotest.py has approved a strategy (fail-closed).
     gate_ok, gate_reason = live_gate()
-    if not gate_ok and not force_sim:
-        status_queue.put(f"Live blocked — {gate_reason}. Sim only.")
+    gate_msg = (f"Live gate OPEN — {gate_reason}" if gate_ok
+                else f"Live gate CLOSED — {gate_reason}. Sim only.")
+    if gate_msg != _last_gate_msg[0]:        # announce on startup and whenever it changes
+        _last_gate_msg[0] = gate_msg
+        status_queue.put(gate_msg)
+    if not gate_ok:
         force_sim = True
 
     # 3. BTC macro filter: block LIVE entries during a BTC downtrend.
