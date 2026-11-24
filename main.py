@@ -675,14 +675,13 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
         # ─────────────────────────────────────────────────────────────────────
 
         # Passed all checks — use this candidate
-        asset, percentage, df = candidate, float(pct), df_c
-
-        # Position sizing: scale from 60% at risk=2 down to 30% at risk=10.
-        # Clamp to valid range so the formula never goes negative.
-        qty, buy_amt, size_why = plan_position(df.Close.iloc[-1], SL, virtual=force_sim)
+        # Risk-based sizing first; only commit to the candidate if it can be sized.
+        qty, buy_amt, size_why = plan_position(df_c.Close.iloc[-1], SL, virtual=force_sim)
         if not qty:
             status_queue.put(f"{candidate} skipped — {size_why}.")
+            qty = 0
             continue
+        asset, percentage, df = candidate, float(pct), df_c
         break
 
     if asset is None and whitelist:
@@ -729,6 +728,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             qty, buy_amt, size_why = plan_position(df_c.Close.iloc[-1], SL, virtual=force_sim)
             if not qty:
                 status_queue.put(f"⭐ {wl_asset} skipped — {size_why}.")
+                qty = 0
                 continue
             asset, percentage, df = wl_asset, 0.0, df_c
             break
@@ -777,6 +777,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
             qty, buy_amt, size_why = plan_position(df_c.Close.iloc[-1], SL, virtual=force_sim)
             if not qty:
                 status_queue.put(f"💎 {bc_asset} skipped — {size_why}.")
+                qty = 0
                 continue
             asset, percentage, df = bc_asset, 0.0, df_c
             break
