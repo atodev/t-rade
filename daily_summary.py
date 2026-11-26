@@ -102,6 +102,8 @@ def load_trades():
                     continue
                 try:
                     ts  = datetime.strptime(parts[0][:19], "%Y-%m-%d %H:%M:%S")
+                    if float(parts[7] or 0) <= 0:      # zero-quantity phantom rows are not trades
+                        continue
                     pnl = float(parts[9]) if parts[9] else 0.0
                     bal = float(parts[17]) if len(parts) > 17 else 0.0
                     rows.append({
@@ -154,47 +156,43 @@ def parse_strategy_log():
     result["param_switches"] = switches
     return result
 
-def parse_analytics():
-    lines = read_file("analytics_report.md")
-    result = {"best_hour": "?", "best_token": "?", "worst_token": "?",
-              "best_risk": "?", "best_hold": "?"}
-    section = None
-    token_rows, risk_rows, hold_rows = [], [], []
-    for line in lines:
-        if "## Asset" in line:
-            section = "asset"
-        elif "## Risk Score Band" in line:
-            section = "risk"
-        elif "## Hold Time Band" in line:
-            section = "hold"
-        elif line.startswith("## "):
-            section = None
-        m = re.search(r"Best hour[^:]*:\s*(\d{2}):00 UTC", line)
-        if m:
-            result["best_hour"] = f"{m.group(1)}:00 UTC"
-        if section == "asset":
-            m = re.search(r"^([A-Z]+USDT)\s+(\d+)\s+\d+%\s+\$\s*[-\d.]+\s+\$\s*([-\d.]+)", line)
-            if m and int(m.group(2)) >= 3:
-                token_rows.append((m.group(1), float(m.group(3))))
-        if section == "risk":
-            m = re.search(r"^(\S+)\s+\d+\s+\d+%\s+\$\s*[-\d.]+\s+\$\s*([-\d.]+)", line)
-            if m and re.match(r"[\d]", m.group(1)):
-                risk_rows.append((m.group(1), float(m.group(2))))
-        if section == "hold":
-            m = re.search(r"^(<?\d+[^,\s]+)\s+\d+\s+\d+%\s+\$\s*[-\d.]+\s+\$\s*([-\d.]+)", line)
-            if m:
-                hold_rows.append((m.group(1), float(m.group(2))))
-    if token_rows:
-        token_rows.sort(key=lambda x: x[1], reverse=True)
-        result["best_token"]  = f"{token_rows[0][0]} (${token_rows[0][1]:+.4f}/trade)"
-        result["worst_token"] = f"{token_rows[-1][0]} (${token_rows[-1][1]:+.4f}/trade)"
-    if risk_rows:
-        best = max(risk_rows, key=lambda x: x[1])
-        result["best_risk"] = f"{best[0]} (avg ${best[1]:+.4f})"
-    if hold_rows:
-        best = max(hold_rows, key=lambda x: x[1])
-        result["best_hold"] = f"{best[0]} (avg ${best[1]:+.4f})"
-    return result
+def trade_breakdown(trades):
+    """Best/worst token, hour, risk band and hold band for the trades passed in (this mission only).
+    analytics_report.md covers all trades ever, so it must not be used in the summary."""
+    def averages(key, min_n):
+        groups = {}
+        for t in trades:
+            k = key(t)
+            if k is not None:
+                groups.setdefault(k, []).append(t["pnl"])
+        return {k: (sum(v) / len(v), len(v)) for k, v in groups.items() if len(v) >= min_n}
+
+    def band(value, edges, labels):
+        for edge, label in zip(edges, labels):
+            if value <= edge:
+                return label
+        return labels[-1]
+
+    def pick(groups, fn, fmt):
+        if not groups:
+            return "not enough trades yet"
+        k = fn(groups, key=lambda g: groups[g][0])
+        return fmt.format(k=k, avg=groups[k][0], n=groups[k][1])
+
+    tokens = averages(lambda t: t["asset"], 3)
+    hours  = averages(lambda t: t["ts"].hour, 3)
+    risks  = averages(lambda t: band(t["risk"], [2, 4, 6, 8], ["0–2", "2–4", "4–6", "6–8", "8–10"]), 3)
+    holds  = averages(lambda t: band(t["hold"] / 60, [5, 15, 30, 60],
+                      ["<5m", "5–15m", "15–30m", "30–60m", ">60m"]) if t["hold"] > 0 else None, 3)
+    token_fmt = "{k} (${avg:+.4f}/trade, {n} trades)"
+    band_fmt  = "{k} (avg ${avg:+.4f}, {n} trades)"
+    return {
+        "best_token":  pick(tokens, max, token_fmt),
+        "worst_token": pick(tokens, min, token_fmt),
+        "best_hour":   pick(hours, max, "{k:02d}:00 UTC (avg ${avg:+.4f}, {n} trades)"),
+        "best_risk":   pick(risks, max, band_fmt),
+        "best_hold":   pick(holds, max, band_fmt),
+    }
 
 def get_btc_24h():
     """Return BTC 24h price change %."""
@@ -452,13 +450,14 @@ remaining = max(0, TOTAL_DAYS - elapsed)
 
 trades  = [t for t in load_trades() if t["ts"] >= START_DATE]   # this mission only
 sl      = parse_strategy_log()
-an      = parse_analytics()
+an      = trade_breakdown(trades)
 btc_24h = get_btc_24h()
 fg_val, fg_label = get_fear_greed()
 btc_dom = get_btc_dominance()
 
 # ── Performance metrics ───────────────────────────────────────────────────────
 sells       = [t for t in trades]
+last_trade  = (f"{max(t['ts'] for t in sells):%d %b %H:%M} UTC" if sells else "none since reset")
 wins        = sum(1 for t in sells if t["ind"] == "p")
 losses      = sum(1 for t in sells if t["ind"] == "l")
 total       = wins + losses
@@ -585,6 +584,7 @@ msg = f"""📊 t-rade DAILY EXECUTIVE SUMMARY — {today}
   BTC Dominance: {f'{btc_dom}%' if btc_dom else '?'} | F&G: {fg_val} ({fg_label})
 
 ━━━ SESSION PERFORMANCE ━━━
+  Latest trade: {last_trade}
   Trades: {total} ({wins}W / {losses}L — {win_rate:.1f}% WR)
   Total P&L: ${total_pnl:.4f} | Avg/trade: ${avg_pnl:.4f}
   Best token:  {an['best_token']}
