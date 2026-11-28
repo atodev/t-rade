@@ -57,3 +57,39 @@ Stability: z<-2 bucket was +0.50% raw in the 1st half of the sample and -0.32% i
 Result: FAIL. No bucket beats costs; market-adjusted effects are insignificant (|t|<1.2).
 Sanity: BTC funding averages 4.9%/yr (2024-11..2026-11) — data is sound. Funding carry (cash-and-carry) at ~5%/yr is the only
 "edge" here and needs a futures/margin account, not spot, and is far below the 10x goal.
+
+## Round 5 — walk-forward optimisation of the live baseline (2026-11-28, `python optimize.py`)
+60-coin universe, 1m x 90d. Candidates rebuilt like main.py (top 10 by rolling 24h change, >= $5M volume), live exits
+including the sticky danger-zone stop. Fee 0.075% + slip 0.05% per side. Chosen on first 59d, judged on last 30d.
+Universe is today's most-traded list (flatters results). One split only. Not modelled: blacklist/whitelist, blue-chip fallback.
+Calibration: current settings without slippage = -0.10%/trade train, WR 19% (Pi sim since 23 Nov: about -0.26%, WR 22%);
+with slippage -0.21% train, -0.30% test.
+
+| Setting (chosen on train) | train n / avg | TEST n / avg |
+|---|---|---|
+| current live | 1462 / -0.207% | 870 / -0.295% |
+| best of 894 + 192 exit runs: SL .980, TP 1.05, no danger stop, 1.2% trail (live entries) | 233 / +0.219% | 145 / -0.442% |
+
+Top 20 train combinations averaged -0.396%/trade on test; 1 of 20 positive. Only 5/192 exit and 7/894 entry+exit runs were
+positive even on train. Entry signal vs same-pool forward return (gross): edge changes sign between train and test at
+5, 15, 60 and 240 min.
+Result: FAIL. No setting to deploy; the train winner did worse than current settings on unseen data.
+
+## Round 6 — daily trend-following on large coins (2026-11-28, `python daily_trend.py`)
+12 coins that were large in early 2020 (list written from memory), daily bars 2020-01-01 → 2026-11-27, long/cash, next-open fills,
+0.125% per side, equal starting slices. Rules fixed beforehand, no tuning. Cash earns 0.
+
+| 12 coins | per year | worst fall | Sharpe | per year since 2023 |
+|---|---|---|---|---|
+| buy and hold | 36.7% | 78% | 0.81 | 20.3% |
+| price > 200d avg | 22.1% | 65% | 0.65 | -2.1% |
+| 50d > 200d avg | 12.2% | 70% | 0.49 | -6.4% |
+| 100d momentum | 17.0% | 65% | 0.57 | 4.0% |
+| 55d high in / 20d low out | 31.5% | 58% | 0.85 | 15.6% |
+| coin and BTC > 200d avg | 23.5% | 70% | 0.69 | 6.1% |
+
+BTC only: hold 35.9%/yr (fall 77%, Sharpe 0.82); price > 200d 30.9% (64%, 0.84); 55/20 21.9% (47%, 0.71).
+Block-bootstrap 90% range of (rule Sharpe - hold Sharpe) includes zero for every rule, 12-coin and BTC-only.
+Average-length check (12 coins): N=50 Sharpe 1.05, N=100..300 0.65-0.77. N=50 was seen after the fact; not a finding.
+Result: NO EVIDENCE of beating buy-and-hold. Some rules fell less, with less time in the market; falls remain 47-70%.
+Not wired into autotest.py or main.py.
