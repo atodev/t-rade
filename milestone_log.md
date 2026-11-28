@@ -21796,3 +21796,123 @@
 [2026-11-28 12:58:07] Waiting for 5 more trades before switching params (0/5 collected).
 [2026-11-28 12:59:07] Eval #1675 | SL=0.988 TP=1.018 MA(9/21) | WR=16.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
 [2026-11-28 12:59:07] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:00:07] Eval #1676 | SL=0.988 TP=1.018 MA(9/21) | WR=16.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:00:07] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:01:07] Eval #1677 | SL=0.988 TP=1.018 MA(9/21) | WR=16.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:01:07] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:02:07] Eval #1678 | SL=0.988 TP=1.018 MA(9/21) | WR=16.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:02:07] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:03:07] Eval #1679 | SL=0.988 TP=1.018 MA(9/21) | WR=16.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:03:07] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:04:07] Eval #1680 | SL=0.988 TP=1.018 MA(9/21) | WR=16.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:04:08] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:05:08] Eval #1681 | SL=0.988 TP=1.018 MA(9/21) | WR=16.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:05:08] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:06:08] Eval #1682 | SL=0.988 TP=1.018 MA(9/21) | WR=16.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:06:08] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:07:08] Eval #1683 | SL=0.988 TP=1.018 MA(9/21) | WR=16.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:07:08] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:08:08] Eval #1684 | SL=0.988 TP=1.018 MA(9/21) | WR=16.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:08:08] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:09:09] Eval #1685 | SL=0.988 TP=1.018 MA(9/21) | WR=16.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:09:09] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:10:09] Eval #1686 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:10:09] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:11:09] Eval #1687 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:11:09] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:12:09] Eval #1688 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:12:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:13:10] Eval #1689 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:13:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:14:10] Eval #1690 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:14:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:15:10] Eval #1691 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:15:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:16:10] Eval #1692 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:16:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:17:10] Eval #1693 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:17:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:18:10] Eval #1694 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:18:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:19:10] Eval #1695 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:19:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:20:10] Eval #1696 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:20:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:21:10] Eval #1697 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:21:10] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:22:11] Eval #1698 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:22:11] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:23:11] Eval #1699 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:23:11] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:24:11] Eval #1700 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:24:11] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:25:11] Eval #1701 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:25:11] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:26:11] Eval #1702 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:26:11] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:27:11] Eval #1703 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:27:11] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:28:11] Eval #1704 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:28:11] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:29:11] Eval #1705 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:29:11] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:30:12] Eval #1706 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:30:12] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:31:12] Eval #1707 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:31:12] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:32:12] Eval #1708 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:32:12] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:33:12] Eval #1709 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:33:12] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:34:12] Eval #1710 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:34:12] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:35:12] Eval #1711 | SL=0.988 TP=1.018 MA(9/21) | WR=17.0% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:35:12] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:36:12] Eval #1712 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:36:12] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:37:12] Eval #1713 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:37:13] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:38:13] Eval #1714 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:38:13] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:39:13] Eval #1715 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:39:13] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:40:13] Eval #1716 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:40:13] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:41:13] Eval #1717 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:41:13] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:42:13] Eval #1718 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:42:13] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:43:13] Eval #1719 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:43:13] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:44:14] Eval #1720 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:44:14] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:45:14] Eval #1721 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:45:14] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:46:14] Eval #1722 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:46:14] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:47:14] Eval #1723 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:47:14] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:48:14] Eval #1724 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:48:14] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:49:14] Eval #1725 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:49:14] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:50:14] Eval #1726 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:50:14] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:51:14] Eval #1727 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:51:15] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:52:15] Eval #1728 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:52:15] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:53:15] Eval #1729 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:53:15] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:54:15] Eval #1730 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:54:15] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:55:15] Eval #1731 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:55:15] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:56:15] Eval #1732 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:56:15] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:57:15] Eval #1733 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:57:15] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:58:15] Eval #1734 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:58:15] Waiting for 5 more trades before switching params (0/5 collected).
+[2026-11-28 13:59:16] Eval #1735 | SL=0.988 TP=1.018 MA(9/21) | WR=17.5% AvgPnL=$0.0000 | Proj7d=$11.80 (need $118.00)
+[2026-11-28 13:59:16] Waiting for 5 more trades before switching params (0/5 collected).
