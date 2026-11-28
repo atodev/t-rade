@@ -1378,7 +1378,8 @@ def create_main_window():
     global style
     root = tk.Tk()
     root.title("TradeDesk")
-    root.geometry("1200x760")
+    # Never open taller than the screen (the Pi's display is smaller than the Mac's).
+    root.geometry(f"1200x{min(760, root.winfo_screenheight() - 90)}")
 
     style = ttk.Style(root)
     style.theme_use('clam')
@@ -1394,18 +1395,27 @@ def create_main_window():
     main_frame = ttk.Frame(root, padding="10")
     main_frame.pack(fill=tk.BOTH, expand=True)
 
-    # --- Status log footer: full window width. Packed first so the chart can't squeeze it out. ---
-    status_log_frame = ttk.LabelFrame(main_frame, text="Status Log (newest first)", padding="6")
-    status_log_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(8, 0))
+    # --- Vertical split: chart + side panels on top, status log below. Drag the bar to resize. ---
+    panes = tk.PanedWindow(main_frame, orient=tk.VERTICAL, sashwidth=10, sashrelief="raised",
+                           showhandle=True, handlesize=10, handlepad=40, opaqueresize=True,
+                           bg="#6b6f75", bd=0, sashcursor="sb_v_double_arrow")
+    panes.pack(fill=tk.BOTH, expand=True)
+    top_area = ttk.Frame(panes)
+    status_log_frame = ttk.LabelFrame(panes, text="Status Log (newest first) — drag the bar above to resize",
+                                      padding="6")
+    panes.add(top_area, minsize=200, stretch="always")
+    panes.add(status_log_frame, minsize=60, stretch="never")
+
     global status_text
-    status_text = tk.Text(status_log_frame, height=9, state='disabled', wrap='word', font="TkFixedFont",
+    # height=1 lets the footer shrink; fill=BOTH makes the text follow the drag bar
+    status_text = tk.Text(status_log_frame, height=1, state='disabled', wrap='word', font="TkFixedFont",
                           bg=lighter_bg_color_str, fg=fg_color_str, relief='flat', padx=6, pady=4)
     status_scroll = ttk.Scrollbar(status_log_frame, orient=tk.VERTICAL, command=status_text.yview)
     status_text.configure(yscrollcommand=status_scroll.set)
     status_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-    status_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
+    status_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-    graph_frame = ttk.Frame(main_frame, width=800)
+    graph_frame = ttk.Frame(top_area, width=800)
     graph_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
 
     # --- Profit Icon ---
@@ -1414,7 +1424,7 @@ def create_main_window():
     profit_icon_label = tk.Label(graph_frame, text="$", font=("Helvetica", 8), fg=profit_icon_fg, bg=bg_color_str)
     # We don't pack or place it yet, it will be placed on demand
 
-    session_frame = ttk.Frame(main_frame, width=400)
+    session_frame = ttk.Frame(top_area, width=400)
     session_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=(5, 0))
     session_frame.pack_propagate(False)
     
@@ -1476,6 +1486,18 @@ def create_main_window():
     equity_var = tk.StringVar(value=f"Equity: ${get_usdt():.2f}")
     ttk.Label(bot_panel, textvariable=pnl_var).pack(anchor="w")
     ttk.Label(bot_panel, textvariable=equity_var).pack(anchor="w")
+
+    def place_sash():
+        """Start with the side panels fully visible; the log gets what is left (about 170px max)."""
+        root.update_idletasks()
+        total = panes.winfo_height()
+        if total < 100:                       # window not mapped yet
+            root.after(200, place_sash)
+            return
+        needed = sum(w.winfo_reqheight() + 10 for w in session_frame.winfo_children())
+        panes.sash_place(0, 0, min(max(needed, total - 170), total - 70))
+
+    root.after(300, place_sash)
 
     return (root, graph_frame, bg_color_normalized, asset_var, percent_var, count_var, status_text,
             roi_var, risk_var, adj_var, ma_diff_var, ma_diff_label, ratio_var, pnl_var, equity_var, profit_icon_label, in_trade_var, throttle_var, trade_mode_label, current_price_label)
