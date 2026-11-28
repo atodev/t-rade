@@ -21,6 +21,24 @@ import analytics
 import urllib.request
 import json as _json
 from datetime import datetime, timedelta, timezone
+import subprocess
+
+def _app_version():
+    """'v<number of commits that changed main.py> · <short id of the latest one>', read once at
+    start-up so it describes the code this process is RUNNING, even after a later git pull."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    def git(*args):
+        return subprocess.check_output(["git", "-C", here, *args], text=True,
+                                       stderr=subprocess.DEVNULL, timeout=5).strip()
+    try:
+        number = git("rev-list", "--count", "HEAD", "--", "main.py")
+        commit = git("log", "-1", "--format=%h", "--", "main.py")
+        edited = "+" if git("status", "--porcelain", "--", "main.py") else ""   # uncommitted changes
+        return f"v{number} · {commit}{edited}"
+    except Exception:
+        return "v?"
+
+APP_VERSION = _app_version()
 
 # --- Global Variables and Initializations ---
 
@@ -1377,7 +1395,7 @@ def start_idle_pattern(root, parent, bg):
 def create_main_window():
     global style
     root = tk.Tk()
-    root.title("TradeDesk")
+    root.title(f"TradeDesk  {APP_VERSION}")
     # Never open taller than the screen (the Pi's display is smaller than the Mac's).
     root.geometry(f"1200x{min(760, root.winfo_screenheight() - 90)}")
 
@@ -1486,6 +1504,10 @@ def create_main_window():
     equity_var = tk.StringVar(value=f"Equity: ${get_usdt():.2f}")
     ttk.Label(bot_panel, textvariable=pnl_var).pack(anchor="w")
     ttk.Label(bot_panel, textvariable=equity_var).pack(anchor="w")
+
+    # Version number, top right (overlaid, so it takes no height from the side panels)
+    tk.Label(session_frame, text=APP_VERSION, font=("Helvetica", 9), fg="#9aa0a6",
+             bg=bg_color_str, bd=0).place(relx=1.0, y=0, anchor="ne")
 
     def place_sash():
         """Start with the side panels fully visible; the log gets what is left (about 170px max)."""
