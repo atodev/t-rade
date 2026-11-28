@@ -1378,7 +1378,7 @@ def create_main_window():
     global style
     root = tk.Tk()
     root.title("TradeDesk")
-    root.geometry("1200x600")
+    root.geometry("1200x760")
 
     style = ttk.Style(root)
     style.theme_use('clam')
@@ -1393,6 +1393,17 @@ def create_main_window():
 
     main_frame = ttk.Frame(root, padding="10")
     main_frame.pack(fill=tk.BOTH, expand=True)
+
+    # --- Status log footer: full window width. Packed first so the chart can't squeeze it out. ---
+    status_log_frame = ttk.LabelFrame(main_frame, text="Status Log (newest first)", padding="6")
+    status_log_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=(8, 0))
+    global status_text
+    status_text = tk.Text(status_log_frame, height=9, state='disabled', wrap='word', font="TkFixedFont",
+                          bg=lighter_bg_color_str, fg=fg_color_str, relief='flat', padx=6, pady=4)
+    status_scroll = ttk.Scrollbar(status_log_frame, orient=tk.VERTICAL, command=status_text.yview)
+    status_text.configure(yscrollcommand=status_scroll.set)
+    status_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+    status_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
     graph_frame = ttk.Frame(main_frame, width=800)
     graph_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0, 5))
@@ -1466,13 +1477,6 @@ def create_main_window():
     ttk.Label(bot_panel, textvariable=pnl_var).pack(anchor="w")
     ttk.Label(bot_panel, textvariable=equity_var).pack(anchor="w")
 
-    status_log_frame = ttk.LabelFrame(session_frame, text="Status Log", padding="10")
-    status_log_frame.pack(fill=tk.X, pady=5)
-    
-    global status_text
-    status_text = tk.Text(status_log_frame, height=3, state='disabled', wrap='word', font=("Helvetica", 9), bg=lighter_bg_color_str, fg=fg_color_str)
-    status_text.pack(fill=tk.X, expand=True)
-
     return (root, graph_frame, bg_color_normalized, asset_var, percent_var, count_var, status_text,
             roi_var, risk_var, adj_var, ma_diff_var, ma_diff_label, ratio_var, pnl_var, equity_var, profit_icon_label, in_trade_var, throttle_var, trade_mode_label, current_price_label)
 
@@ -1509,9 +1513,9 @@ def check_status_queue(root, status_text_widget, profit_icon_label):
             message = "Take Profit target hit! Trailing..."
 
         status_text_widget.config(state='normal')
-        status_text_widget.insert('1.0', message + '\n')
-        if int(status_text_widget.index('end-1c').split('.')[0]) > 50:
-            status_text_widget.delete('51.0', 'end')
+        status_text_widget.insert('1.0', f"{datetime.now():%H:%M:%S}  {message}\n")
+        if int(status_text_widget.index('end-1c').split('.')[0]) > 200:
+            status_text_widget.delete('201.0', 'end')
         status_text_widget.config(state='disabled')
         status_text_widget.see("1.0")
 
