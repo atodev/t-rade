@@ -54,12 +54,11 @@ class AIStrategyEngine:
 
     Lifecycle
     ---------
-    1. Starts with force_sim=True (simulation only).
+    1. Never controls live vs simulation: that is ENABLE_LIVE + the backtest gate in main.py.
     2. Waits until MIN_TRADES_FOR_EVAL completed sells exist in trades.csv.
     3. Every EVAL_INTERVAL seconds it scores the current parameter set.
     4. If below target it advances to the next entry in PARAM_GRID.
-    5. When the projection meets the 10× target it enables live trading.
-    6. If live performance later drops, it reverts to simulation.
+    5. Reports when the projection meets the 10× target (information only).
     """
 
     def __init__(self, ai_queue: Queue, initial_balance: float = 18.0):
@@ -162,7 +161,7 @@ class AIStrategyEngine:
 
     # ── Public interface ──────────────────────────────────────────────────────
 
-    def run(self, get_initial_bal, get_strategy_params, set_strategy_params, set_force_sim):
+    def run(self, get_initial_bal, get_strategy_params, set_strategy_params):
         """
         Main loop — called from a daemon thread.
 
@@ -171,7 +170,6 @@ class AIStrategyEngine:
         get_initial_bal      : callable() → float
         get_strategy_params  : callable() → {"SL": float, "Target": float}
         set_strategy_params  : callable({"SL": float, "Target": float})
-        set_force_sim        : callable(bool)
         """
         self.running = True
 
@@ -183,9 +181,8 @@ class AIStrategyEngine:
         self._post(
             f"Engine online. Starting equity: ${get_initial_bal():.2f}. "
             f"Target: ${get_initial_bal() * TARGET_MULTIPLIER:.2f} in {PROJECTION_DAYS} days. "
-            f"Simulation mode active."
+            f"Live trading is controlled by ENABLE_LIVE and the backtest gate."
         )
-        set_force_sim(True)
 
         while self.running:
             time.sleep(EVAL_INTERVAL)
@@ -237,9 +234,9 @@ class AIStrategyEngine:
                     "losses":           result["losses"],
                     "success":          on_track,
                     "status":           (
-                        "on_track — live enabled"
+                        "on_track"
                         if on_track
-                        else "below target — continuing sim"
+                        else "below target"
                     ),
                 }
                 self.strategy_log.append(entry)
@@ -255,19 +252,15 @@ class AIStrategyEngine:
 
                 if on_track and not self.live_enabled:
                     self.live_enabled = True
-                    set_force_sim(False)
                     self._post(
                         f"MILESTONE: Simulation meets 10× target! "
                         f"WR={result['win_rate']:.1%}, Proj7d=${result['projected_equity']:.2f}. "
-                        f"Live trading enabled."
+                        f"Information only; this does not enable live trading."
                     )
                 elif not on_track:
                     if self.live_enabled:
                         self.live_enabled = False
-                        set_force_sim(True)
-                        self._post(
-                            "Performance fell below target. Reverting to simulation."
-                        )
+                        self._post("Performance fell below target.")
                     # Only switch params after collecting MIN_NEW_TRADES_TO_SWITCH
                     # new trades under the current set — prevents thrashing when
                     # the market is quiet and no new data is coming in.

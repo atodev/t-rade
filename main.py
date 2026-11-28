@@ -16,7 +16,7 @@ from binance.client import Client
 from termcolor import colored
 from queue import Queue
 from ai_engine import AIStrategyEngine
-from risk import RiskManager
+from risk import RiskManager, live_enabled_by_user
 import analytics
 import urllib.request
 import json as _json
@@ -108,7 +108,6 @@ BLACKLIST_WINDOW_HOURS   = 1    # rolling window to count losses
 BLACKLIST_DURATION_HOURS = 3    # how long the blacklist lasts
 WHITELIST_WINS_TRIGGER   = 2    # wins within window to whitelist
 WHITELIST_DURATION_HOURS = 2    # how long the whitelist lasts
-force_sim_override = False
 current_ma_fast = 9
 current_ma_slow = 21
 
@@ -124,6 +123,7 @@ lighter_bg_color = None
 
 # Binance Client
 load_dotenv()
+ENABLE_LIVE    = live_enabled_by_user()   # master switch, read once at start-up (default: off)
 API_KEY        = os.getenv("API_KEY")
 SECRET_KEY     = os.getenv("SECRET_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -166,7 +166,7 @@ def plan_position(price, SL, virtual=False):
 
 def live_gate():
     """Return (allowed, reason). Fail-closed: any problem => sim only.
-    Independent of force_sim_override so the AI engine cannot re-enable live trading."""
+    This is the backtest gate only; real orders also need ENABLE_LIVE (the owner's switch)."""
     try:
         with open(STATE_FILE) as f:
             st = _json.load(f)
@@ -543,7 +543,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     #    Debrief data showed clear negative avg P&L in Extreme Fear conditions.
     #    Sim is allowed through so the AI keeps learning in all conditions.
     MIN_FG = 25
-    if fg_value is not None and fg_value < MIN_FG and not (force_sim or force_sim_override):
+    if fg_value is not None and fg_value < MIN_FG and not force_sim:
         status_queue.put(
             f"F&G {fg_value} ({fg_label}) below {MIN_FG} — forcing sim to protect capital."
         )
@@ -551,12 +551,19 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
 
     # 2b. Backtest gate: live only if autotest.py has approved a strategy (fail-closed).
     gate_ok, gate_reason = live_gate()
-    gate_msg = (f"Live gate OPEN — {gate_reason}" if gate_ok
-                else f"Live gate CLOSED — {gate_reason}. Sim only.")
+    if not gate_ok:
+        gate_msg = (f"Live gate CLOSED — {gate_reason}. "
+                    f"ENABLE_LIVE is {'on' if ENABLE_LIVE else 'off'}. Sim only.")
+    elif not ENABLE_LIVE:
+        gate_msg = f"Live gate OPEN — {gate_reason}, but ENABLE_LIVE is off. Sim only."
+    else:
+        gate_msg = f"Live gate OPEN — {gate_reason}. ENABLE_LIVE is on (other safety checks still apply)."
     if gate_msg != _last_gate_msg[0]:        # announce on startup and whenever it changes
         _last_gate_msg[0] = gate_msg
         status_queue.put(gate_msg)
-    if not gate_ok:
+        if gate_ok:                          # a pass is worth a notification: going live is your call
+            telegram_notify(f"🚦 {gate_msg}")
+    if not (gate_ok and ENABLE_LIVE):
         force_sim = True
 
     # 2c. Risk breakers (daily loss, loss streak, drawdown) — live only; sim keeps collecting data.
@@ -576,8 +583,7 @@ def strategy(SL=None, Target=None, percent_var=None, risk_var=None, in_trade_var
     #    Sim is always allowed through so the AI keeps collecting data
     #    and can learn what works (or doesn't) in bear conditions.
     btc_bull = btc_is_bullish()
-    is_sim_only = force_sim or force_sim_override
-    if not btc_bull and not is_sim_only:
+    if not btc_bull and not force_sim:
         status_queue.put("BTC bearish — forcing sim scan so AI can gather bear-market data.")
         force_sim = True
     elif not btc_bull:
@@ -1064,7 +1070,7 @@ def get_usdt():
         return 0
 
 def manual_buy():
-    global in_trade, current_buyprice, current_qty, currently_analyzing_asset, df_log, pc, lc, consec_pc, consec_lc
+    global in_trade, current_buyprice, current_qty, currently_analyzing_asset, df_log, pc, lc, consec_pc, consec_lc, trade
     if in_trade:
         return
     asset = currently_analyzing_asset
@@ -1075,7 +1081,10 @@ def manual_buy():
         return
     buyprice = df.Close.iloc[-1]
     bal = get_usdt()
-    # Manual orders are real money: they obey the same backtest gate, risk halts and sizing as the bot.
+    # Manual orders are real money: they obey ENABLE_LIVE, the backtest gate, risk halts and sizing.
+    if not ENABLE_LIVE:
+        status_queue.put("Manual BUY blocked — ENABLE_LIVE is off.")
+        return
     ok, why = live_gate()
     if not ok:
         status_queue.put(f"Manual BUY blocked — {why}")
@@ -1088,7 +1097,8 @@ def manual_buy():
     if not qty:
         status_queue.put(f"Manual BUY blocked — {why}")
         return
-    buy(asset, qty, True)
+    trade = True
+    buy(asset, qty, trade)
     in_trade = True
     current_buyprice = buyprice
     current_qty = qty
@@ -1110,10 +1120,10 @@ def manual_sell():
     sellprice = df.Close.iloc[-1]
     pnl = (sellprice - current_buyprice) * current_qty
     total_pnl += pnl
-    sell(asset, current_qty, True)
+    sell(asset, current_qty, trade)           # real order only if the open position is real
     dt = df.index[-1]
     bal = get_usdt()
-    new_row = log(dt, asset, "sell", True, sellprice, current_qty, current_buyprice * current_qty, pc, lc, consec_pc, consec_lc, "p" if pnl > 0 else "l", bal, 0, 0,
+    new_row = log(dt, asset, "sell", trade, sellprice, current_qty, current_buyprice * current_qty, pc, lc, consec_pc, consec_lc, "p" if pnl > 0 else "l", bal, 0, 0,
                   pnl=pnl)
     df_log = pd.concat([df_log, new_row])
     new_row.to_csv("trades.csv", mode="a", index=False, header=False)
@@ -1208,11 +1218,9 @@ def trading_loop(args):
             status_queue.put(f"get_usdt error: {_ge} — retrying in 30s")
             time.sleep(30)
             continue
-        force_sim = usdt_bal < 5 or force_sim_override
-        if usdt_bal < 5:
+        force_sim = usdt_bal < 5
+        if force_sim:
             status_queue.put("Insufficient balance — running in simulation mode.")
-        elif force_sim_override:
-            status_queue.put("AI override — simulation mode active.")
 
         try:
             strategy(percent_var=percent_var, risk_var=risk_var, in_trade_var=in_trade_var, force_sim=force_sim)
@@ -1715,10 +1723,6 @@ def _start_shared_threads():
         current_ma_fast = params.get("ma_fast", current_ma_fast)
         current_ma_slow = params.get("ma_slow", current_ma_slow)
 
-    def _set_force_sim(val):
-        global force_sim_override
-        force_sim_override = val
-
     # Headless trading_loop uses stub Tkinter vars (StringVar-like objects)
     class _Stub:
         def set(self, v): pass
@@ -1731,7 +1735,7 @@ def _start_shared_threads():
     ai_eng = AIStrategyEngine(ai_log_queue, initial_balance=get_usdt())
     at = threading.Thread(
         target=ai_eng.run,
-        args=(_get_initial_bal, _get_strategy_params, _set_strategy_params, _set_force_sim),
+        args=(_get_initial_bal, _get_strategy_params, _set_strategy_params),
         daemon=True,
     )
     at.start()
@@ -1822,17 +1826,13 @@ if __name__ == "__main__":
             current_ma_fast = params.get("ma_fast", current_ma_fast)
             current_ma_slow = params.get("ma_slow", current_ma_slow)
 
-        def _set_force_sim(val):
-            global force_sim_override
-            force_sim_override = val
-
         trader_thread = threading.Thread(target=trading_loop, args=(trader_args,), daemon=True)
         trader_thread.start()
 
         ai_eng = AIStrategyEngine(ai_log_queue, initial_balance=get_usdt())
         ai_thread = threading.Thread(
             target=ai_eng.run,
-            args=(_get_initial_bal, _get_strategy_params, _set_strategy_params, _set_force_sim),
+            args=(_get_initial_bal, _get_strategy_params, _set_strategy_params),
             daemon=True,
         )
         ai_thread.start()

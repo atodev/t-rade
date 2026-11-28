@@ -23,6 +23,7 @@ import os
 import csv
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from risk import live_enabled_by_user
 
 load_dotenv()
 TELEGRAM_TOKEN  = os.getenv("TELEGRAM_TOKEN")
@@ -535,7 +536,6 @@ process_lines = (
 ai_lines = read_file("milestone_log.md")
 ai_errors = sum(1 for l in ai_lines if "ERROR" in l)
 ai_milestones = sum(1 for l in ai_lines if "MILESTONE" in l)
-ai_live_enabled = any("Live trading enabled" in l for l in ai_lines)
 # Extract best params from milestone log (where they're actually written)
 for line in ai_lines:
     m = re.search(r"New best params.*?SL=([\d.]+).*?Target=([\d.]+).*?MA\((\d+)/(\d+)\)", line)
@@ -600,7 +600,7 @@ msg = f"""📊 t-rade DAILY EXECUTIVE SUMMARY — {today}
   Eval cycles: {sl['cycle']} | Param switches: {sl['param_switches']}
   Current params: SL={sl['sl']} TP={sl['target']} MA({sl['ma']})
   Best params found: {sl['best_params']}
-  Live trading: {'ENABLED' if ai_live_enabled else 'SIM ONLY'}
+  Live switch (ENABLE_LIVE): {'ON' if live_enabled_by_user() else 'OFF — sim only'}
   Engine errors: {ai_errors} | Milestones hit: {ai_milestones}
 
 ━━━ WARNINGS ━━━

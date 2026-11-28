@@ -31,6 +31,12 @@ BALANCE_USE_CAP   = 0.98    # never size above this fraction of the balance (lea
 FEE_RATE          = 0.00075  # per side (BNB discount)
 
 
+def live_enabled_by_user():
+    """The owner's master switch: ENABLE_LIVE in .env. Off unless explicitly turned on.
+    It never enables live trading by itself; the backtest gate and safety checks still apply."""
+    return os.getenv("ENABLE_LIVE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 class RiskManager:
     def __init__(self, path="risk_state.json", now=None, **overrides):
         self.path = path
